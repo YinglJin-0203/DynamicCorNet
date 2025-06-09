@@ -1,50 +1,54 @@
-#
-# This is a Shiny web application. You can run the application by clicking
-# the 'Run App' button above.
-#
-# Find out more about building applications with Shiny here:
-#
-#    https://shiny.posit.co/
-#
+# This shiny app is built for network visualization 
+# of temporal multivariate data
 
 library(shiny)
+library(bslib)
+library(DT)
 
-# Define UI for application that draws a histogram
-ui <- fluidPage(
-
-    # Application title
-    titlePanel("Old Faithful Geyser Data"),
-
-    # Sidebar with a slider input for number of bins 
-    sidebarLayout(
-        sidebarPanel(
-            sliderInput("bins",
-                        "Number of bins:",
-                        min = 1,
-                        max = 50,
-                        value = 30)
-        ),
-
-        # Show a plot of the generated distribution
-        mainPanel(
-           plotOutput("distPlot")
-        )
-    )
+# UI includes the following elements
+# visualization threshold of correlation
+ui <- page_fluid(
+  
+  # side bar input
+  # maybe change to multipage layout page_nabvar later
+  titlePanel("Temporal network visualization of multidimensional data"),
+  sidebarLayout(
+    sidebarPanel(
+      # upload file
+      fileInput(inputId = "df_path", label = "Upload data",
+                accept = c(".csv")), # Maybe add more data types? 
+      # checkboxInput(inputId = "vars", label="Variables", value = T),
+      
+      # choose correlation threshold
+      sliderInput(inputId = "thres_cor", label = "Visualization threshold", min=0, max=1, value=0, step=0.01,
+                  ticks=FALSE)
+      
+    ),
+  
+  
+  # display
+  mainPanel(
+    dataTableOutput("show_df")
+  )
+  
+  )
+  
 )
 
 # Define server logic required to draw a histogram
 server <- function(input, output) {
+  # display loaded data
+  df <- reactive({
+    req(input$df_path)
+    read.csv(input$df_path$datapath)
+  })
+  
+  
+  output$show_df <- renderDataTable({
+    df()
+  })
 
-    output$distPlot <- renderPlot({
-        # generate bins based on input$bins from ui.R
-        x    <- faithful[, 2]
-        bins <- seq(min(x), max(x), length.out = input$bins + 1)
 
-        # draw the histogram with the specified number of bins
-        hist(x, breaks = bins, col = 'darkgray', border = 'white',
-             xlab = 'Waiting time to next eruption (in mins)',
-             main = 'Histogram of waiting times')
-    })
 }
 
 # Run the application 
