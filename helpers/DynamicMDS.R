@@ -1,0 +1,97 @@
+# This scripts writes the function for dynamic multidimensional scaling
+
+
+library(smacof)
+library(mgcv)
+library(tidyverse)
+# library(WGCNA)
+
+# df <- read.csv(here("data/sim1_Y.csv"))
+# df <- df[, -1]
+
+
+#### Format coordinates ####
+# Flatten coordinates into a single vector
+flatten_configs <- function(configs) {
+  do.call(c, lapply(configs, as.vector))
+}
+
+# Reshape vector back into list of coordinates
+# because optim only works with 1D parameter
+reshape_configs <- function(vec, P, ndim, Tmax) {
+  configs <- vector("list", Tmax)
+  for (t in 1:Tmax) {
+    start <- ((t - 1) * P * ndim) + 1
+    end <- t * P * ndim
+    configs[[t]] <- matrix(vec[start:end], nrow = P, ncol = ndim)
+  }
+  return(configs)
+}
+
+
+#### Stress function ####
+
+# Stress function with temporal penalty
+# vec: coordinates at this iteration
+stress_function <- function(vec, diss_list, P, ndim, Tmax, lambda) {
+  configs <- reshape_configs(vec, P, ndim, Tmax)
+  stress <- 0
+  # Kruskal stress
+  for (t in 1:Tmax) {
+    dists <- as.matrix(dist(configs[[t]]))
+    delta <- diss_list[[t]]
+    stress <- stress + sum((dists - delta)^2)
+  }
+  # penalization
+  for (t in 2:Tmax) {
+    diff <- configs[[t]] - configs[[t - 1]]
+    stress <- stress + lambda * sum(diff^2)
+  }
+  return(stress)
+}
+
+#### Dynamic MDS ####
+# data: a dataframe with id, time 
+# N: number of subjects
+# Tmax: number of measurement points
+# tid: measurement grid
+# P: number of variables
+# cor_method: correlation to calculate. pearson or spearman
+# afunc: adjacency function. identify, sigmoid, power
+
+DynamicMDS <- function(adj_mat, lambda=10){
+  
+  # dissimilarity matrix
+  # package WGCNA doesn't work. I need to write my own TOM function later
+  dis_mat <- lapply(adj_mat, function(x){1-x})
+  
+  # initialization
+  init_coord <- lapply(dis_mat, function(diss) {smacofSym(diss, ndim = 2)$conf})
+  
+  # key scalars
+  P <- dim(adj_mat[[1]])[1]
+  Tmax <- length(adj_mat)
+  
+  # optimization BFGS
+  result <- optim(
+      par = flatten_configs(init_coord),
+      fn = stress_function,
+      diss_list = dis_mat,
+      P = P,
+      ndim = 2,
+      Tmax = Tmax,
+      lambda = lambda,
+      method = "BFGS",
+      control = list(maxit = 1000)
+    ) # I will need a convergence warning here
+  
+  coords = reshape_configs(result$par, P=P, ndim=2, Tmax = Tmax)
+  
+  # return both adjacency matrix, dissimilarity matrix and coordinates
+  return(coords)
+} 
+
+
+
+#### test ####
+# coords <- DynamicMDS(df, 100, 100, 1:100, 11)
