@@ -1,6 +1,7 @@
 # This shiny app is built for network visualization 
 # of temporal multivariate data
 
+rm(list=ls())
 library(shiny)
 library(bslib)
 library(here)
@@ -77,7 +78,7 @@ server <- function(input, output) {
   # calculate adjacency matrix at each time point
   adj_mat <- reactive({
     req(df())
-    GetAdjMat(data=df()[, -1])
+    GetAdjMat(data=df())
   })
   
   # calculate graph

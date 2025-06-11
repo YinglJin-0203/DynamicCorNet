@@ -3,7 +3,7 @@
 
 
 GetAdjMat <- function(data, sim = "correlation", cor_method = "pearson",
-                      afunc="identity"){
+                      afunc="absolute"){
   # split data by time
   # similarity matrix
   cor_mat <- data %>% 
