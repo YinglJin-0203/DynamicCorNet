@@ -32,7 +32,10 @@ ui <- page_fluid(
       # upload file
       fileInput(inputId = "df_path", label = "Upload data",
                 accept = c(".csv")), # Maybe add more data types? 
-      # checkboxInput(inputId = "vars", label="Variables", value = T),
+      
+      # correlation type
+      selectInput("cor_type", label="Type of correlation",
+                  choices = list("pearson", "spearman")),
       
       # choose correlation threshold
       sliderInput(inputId = "thres_cor", label = "Visualization threshold", min=0, max=1, value=0, step=0.01,
@@ -43,6 +46,8 @@ ui <- page_fluid(
       
       # variable list 
       uiOutput("varnames")
+      
+      # type of correlation
       
     ),
   
@@ -92,7 +97,7 @@ server <- function(input, output) {
   # calculate adjacency matrix at each time point
   adj_mat <- reactive({
     req(df())
-    GetAdjMat(data=df())
+    GetAdjMat(data=df(), cor_method = input$cor_type)
   })
   
   # calculate graph
@@ -122,7 +127,7 @@ server <- function(input, output) {
       labs(x="Time", y=" ")
     # correlation trend
     p2 <- df_pair %>% group_by(time) %>%
-      group_modify(~{data.frame(cor = cor(.x[, input$select_var], method = "pearson", 
+      group_modify(~{data.frame(cor = cor(.x[, input$select_var], method = input$cor_type, 
                                           use = "pairwise.complete.obs")[1, 2])})  %>%
       ungroup() %>% ggplot(aes(x=time, y=cor))+
       geom_point()+
