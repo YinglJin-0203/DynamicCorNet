@@ -118,14 +118,16 @@ server <- function(input, output) {
       pivot_longer(input$select_var) %>%
       ggplot(aes(x=time, y=value, group=time))+
       geom_boxplot()+geom_jitter(size=0.5)+
-      facet_wrap(~name, ncol=1)
+      facet_wrap(~name, ncol=1)+
+      labs(x="Time", y=" ")
     # correlation trend
     p2 <- df_pair %>% group_by(time) %>%
       group_modify(~{data.frame(cor = cor(.x[, input$select_var], method = "pearson", 
                                           use = "pairwise.complete.obs")[1, 2])})  %>%
       ungroup() %>% ggplot(aes(x=time, y=cor))+
       geom_point()+
-      geom_line()
+      geom_line()+
+      labs(title = "Empirical correlation", x = "Time", y = " ")
    pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
    pall
   })
