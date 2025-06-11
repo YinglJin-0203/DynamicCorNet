@@ -6,6 +6,8 @@ library(shiny)
 library(bslib)
 library(here)
 library(DT)
+library(tidyverse)
+library(gridExtra)
 
 
 #### Helper functions #### 
@@ -37,7 +39,10 @@ ui <- page_fluid(
                   ticks=FALSE),
       
       # time bar
-      uiOutput("time_bar")
+      uiOutput("time_bar"),
+      
+      # variable list 
+      uiOutput("varnames")
       
     ),
   
@@ -46,7 +51,8 @@ ui <- page_fluid(
   mainPanel(
     navset_card_underline(
       nav_panel("Data", dataTableOutput("show_df")),
-      nav_panel("Network", plotOutput("netp"))
+      nav_panel("Network", plotOutput("netp")),
+      nav_panel("Temporal trend", plotOutput("trendp"))
     )
   )
   
@@ -68,12 +74,20 @@ server <- function(input, output) {
   output$show_df <- renderDataTable({
     df()
   })
+  
+  # time axis
   output$time_bar <- renderUI({
     req(df())
-    # trange <- range(df()$time)
+    # time bar
     Tmax <- length(unique(df()$time))
     sliderInput("time_bar", "Time (index)", min=1, max = Tmax, value=1, step = 1, ticks = F)
   }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
+  
+  # variable list
+  output$varnames <- renderUI({
+    req(df())
+    checkboxGroupInput("select_var", label = "Variables", choices = colnames(df()))
+  })
   
   # calculate adjacency matrix at each time point
   adj_mat <- reactive({
@@ -95,6 +109,26 @@ server <- function(input, output) {
   
   output$netp <- renderPlot(plot(graph_list()[[input$time_bar]], 
                                  layout = as.matrix(coord_list()[[input$time_bar]])))
+  
+  output$trendp <- renderPlot({
+    req(df())
+    df_pair <- df()[, c("id", "time", input$select_var)]
+    # individual trend
+    p1 <- df_pair %>%
+      pivot_longer(input$select_var) %>%
+      ggplot(aes(x=time, y=value, group=time))+
+      geom_boxplot()+geom_jitter(size=0.5)+
+      facet_wrap(~name, ncol=1)
+    # correlation trend
+    p2 <- df_pair %>% group_by(time) %>%
+      group_modify(~{data.frame(cor = cor(.x[, input$select_var], method = "pearson", 
+                                          use = "pairwise.complete.obs")[1, 2])})  %>%
+      ungroup() %>% ggplot(aes(x=time, y=cor))+
+      geom_point()+
+      geom_line()
+   pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
+   pall
+  })
 
 }
 
