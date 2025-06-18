@@ -1,0 +1,23 @@
+---
+title: "Vignette Title"
+author: "Vignette Author"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Vignette Title}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# Dynamic MDS
+
+In real dataset, because of the presence of missing value (all missing or missing complete pairs), some correlation measure cannot be calculated at some time slices. In such scenarios, Dynamic penalization become possible, because it is not possible to calculate the difference between configuration. 
+
+We could potentially calculate the difference of nodes that exist in both slices. 

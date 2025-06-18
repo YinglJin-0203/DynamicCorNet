@@ -12,18 +12,22 @@ library(tidyverse)
 
 #### Format coordinates ####
 # Flatten coordinates into a single vector
+# configs is a list of coordinates, each element corresponds to a time point
 flatten_configs <- function(configs) {
   do.call(c, lapply(configs, as.vector))
 }
 
 # Reshape vector back into list of coordinates
 # because optim only works with 1D parameter
+# P is a vector, each element corresponding to the number of nodes at each time point
 reshape_configs <- function(vec, P, ndim, Tmax) {
   configs <- vector("list", Tmax)
+  
+  cumP <- c(0, cumsum(P))
   for (t in 1:Tmax) {
-    start <- ((t - 1) * P * ndim) + 1
-    end <- t * P * ndim
-    configs[[t]] <- matrix(vec[start:end], nrow = P, ncol = ndim)
+    start <- (cumP[t]*ndim) + 1
+    end <- cumP[t+1] * ndim
+    configs[[t]] <- matrix(vec[start:end], nrow = P[t], ncol = ndim)
   }
   return(configs)
 }
@@ -33,6 +37,7 @@ reshape_configs <- function(vec, P, ndim, Tmax) {
 
 # Stress function with temporal penalty
 # vec: coordinates at this iteration
+# P is a vector, each element corresponding to the number of nodes at each time point
 stress_function <- function(vec, diss_list, P, ndim, Tmax, lambda) {
   configs <- reshape_configs(vec, P, ndim, Tmax)
   stress <- 0
@@ -42,9 +47,15 @@ stress_function <- function(vec, diss_list, P, ndim, Tmax, lambda) {
     delta <- diss_list[[t]]
     stress <- stress + sum((dists - delta)^2)
   }
+  
   # penalization
   for (t in 2:Tmax) {
-    diff <- configs[[t]] - configs[[t - 1]]
+    # identify nodes that exists in both slices
+    node_t <- colnames(diss_list[[t]])
+    node_t_1 <- colnames(diss_list[[t-1]])
+    rid_t <- node_t %in% node_t_1
+    rid_t_1 <- node_t_1 %in% node_t
+    diff <- configs[[t]][rid_t] - configs[[t-1]][rid_t_1]
     stress <- stress + lambda * sum(diff^2)
   }
   return(stress)
@@ -58,6 +69,7 @@ stress_function <- function(vec, diss_list, P, ndim, Tmax, lambda) {
 # P: number of variables
 # cor_method: correlation to calculate. pearson or spearman
 # afunc: adjacency function. identify, sigmoid, power
+# P is a vector, each element corresponding to the number of nodes at each time point
 
 DynamicMDS <- function(adj_mat, lambda=10){
   
@@ -69,7 +81,7 @@ DynamicMDS <- function(adj_mat, lambda=10){
   init_coord <- lapply(dis_mat, function(diss) {smacofSym(diss, ndim = 2)$conf})
   
   # key scalars
-  P <- dim(adj_mat[[1]])[1]
+  P <- sapply(adj_mat, ncol)
   Tmax <- length(adj_mat)
   
   # optimization BFGS

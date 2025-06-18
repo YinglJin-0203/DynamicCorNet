@@ -109,7 +109,7 @@ server <- function(input, output) {
   # calculate coordinates
   coord_list <- reactive({
     req(adj_mat())
-    DynamicMDS(adj_mat(), 10)
+    DynamicMDS(adj_mat(), 5)
   })
   
   output$netp <- renderPlot(plot(graph_list()[[input$time_bar]], 
@@ -124,7 +124,8 @@ server <- function(input, output) {
       ggplot(aes(x=time, y=value, group=time))+
       geom_boxplot()+geom_jitter(size=0.5)+
       facet_wrap(~name, ncol=1)+
-      labs(x="Time", y=" ")
+      labs(x="Time", y=" ")+
+      scale_x_continuous(breaks = 1: length(unique(df()$time)))
     # correlation trend
     p2 <- df_pair %>% group_by(time) %>%
       group_modify(~{data.frame(cor = cor(.x[, input$select_var], method = input$cor_type, 
@@ -132,12 +133,15 @@ server <- function(input, output) {
       ungroup() %>% ggplot(aes(x=time, y=cor))+
       geom_point()+
       geom_line()+
-      labs(title = "Empirical correlation", x = "Time", y = " ")
+      labs(title = "Empirical correlation", x = "Time", y = " ")+
+      scale_x_continuous(breaks = 1: length(unique(df()$time)))
    pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
    pall
   })
 
 }
+
+
 
 # Run the application 
 shinyApp(ui = ui, server = server)
