@@ -24,13 +24,17 @@ In real dataset, because of the presence of missing value (all missing or missin
 
 We could potentially calculate the difference of nodes that exist in both slices. 
 
+For "empty slices", where no data is available for plot, we could skip this slide and penalize the difference between the two adjacent non-empty slices instead. 
+
 ## Splines MDS
+
+- write a function for it
 
 # Visual improvments
 
 1. Automatically create time index
 
-2. Variable and time slice summary
+2. Variable and time slice summary on first page
 
 3.  Smaller label font, transparent nodes
 

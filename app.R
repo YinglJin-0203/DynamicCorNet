@@ -99,9 +99,9 @@ server <- function(input, output) {
     read.csv(input$df_path$datapath)
   })
   
-  output$show_df <- renderDataTable({
-    df()
-  })
+  output$show_df <- renderDataTable({df()},
+    options = list(scrollX = T, fixedHeader=T)
+  )
   
   # variable list
   output$varnames1 <- renderUI({
