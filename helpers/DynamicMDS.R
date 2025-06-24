@@ -43,20 +43,35 @@ stress_function <- function(vec, diss_list, P, ndim, Tmax, lambda) {
   stress <- 0
   # Kruskal stress
   for (t in 1:Tmax) {
-    dists <- as.matrix(dist(configs[[t]]))
-    delta <- diss_list[[t]]
-    stress <- stress + sum((dists - delta)^2)
+    if(dim(diss_list[[t]])[1]==0){
+      stress <- stress+0
+    }
+    else{
+      dists <- as.matrix(dist(configs[[t]]))
+      delta <- diss_list[[t]]
+      stress <- stress + sum((dists - delta)^2)
+    }
   }
   
   # penalization
-  for (t in 2:Tmax) {
-    # identify nodes that exists in both slices
-    node_t <- colnames(diss_list[[t]])
-    node_t_1 <- colnames(diss_list[[t-1]])
-    rid_t <- node_t %in% node_t_1
-    rid_t_1 <- node_t_1 %in% node_t
-    diff <- configs[[t]][rid_t] - configs[[t-1]][rid_t_1]
-    stress <- stress + lambda * sum(diff^2)
+  node_list <- lapply(diss_list, colnames)
+  config_list <- configs
+  for(i in 2:length(node_list)){
+    if(is.null(node_list[[i]])){
+      node_list[[i]] <- node_list[[i-1]]
+      config_list[[i]] <- config_list[[i-1]]
+    }
+  }
+  for (t in 2:length(node_list)) {
+    if(dim(diss_list[[t]])[1]>0){
+      # identify nodes that exists in both slices
+      node_t <- node_list[[t]]
+      node_t_1 <- node_list[[t-1]]
+      rid_t <- node_t %in% node_t_1
+      rid_t_1 <- node_t_1 %in% node_t
+      diff <- config_list[[t]][rid_t] - config_list[[t-1]][rid_t_1]
+      stress <- stress + lambda * sum(diff^2)
+    }
   }
   return(stress)
 }
@@ -77,12 +92,20 @@ DynamicMDS <- function(adj_mat, lambda=10){
   # package WGCNA doesn't work. I need to write my own TOM function later
   dis_mat <- lapply(adj_mat, function(x){1-x})
   
-  # initialization
-  init_coord <- lapply(dis_mat, function(diss) {smacofSym(diss, ndim = 2)$conf})
-  
   # key scalars
   P <- sapply(adj_mat, ncol)
   Tmax <- length(adj_mat)
+  
+  # initialization
+  init_coord <- list()
+  for(t in 1:Tmax){
+    if(dim(dis_mat[[t]])[1]>2){
+      init_coord[[t]] <- smacofSym(dis_mat[[t]], ndim = 2)$conf
+    }
+    else{
+      init_coord[[t]] <- NULL
+    }
+  }
   
   # optimization BFGS
   result <- optim(

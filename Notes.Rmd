@@ -1,6 +1,6 @@
 ---
-title: "Vignette Title"
-author: "Vignette Author"
+title: "Development notes"
+author: "Ying Jin"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
 vignette: >
@@ -16,8 +16,24 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Dynamic MDS
+# Visualization methods 
+
+##  Dynamic MDS
 
 In real dataset, because of the presence of missing value (all missing or missing complete pairs), some correlation measure cannot be calculated at some time slices. In such scenarios, Dynamic penalization become possible, because it is not possible to calculate the difference between configuration. 
 
 We could potentially calculate the difference of nodes that exist in both slices. 
+
+## Splines MDS
+
+# Visual improvments
+
+1. Automatically create time index
+
+2. Variable and time slice summary
+
+3.  Smaller label font, transparent nodes
+
+# Data 
+
+- How to standardize longitudinal data? 

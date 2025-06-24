@@ -10,11 +10,11 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-<meta name="author" content="Vignette Author" />
+<meta name="author" content="Ying Jin" />
 
 <meta name="date" content="2025-06-18" />
 
-<title>Vignette Title</title>
+<title>Development notes</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -237,14 +237,16 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 
 
-<h1 class="title toc-ignore">Vignette Title</h1>
-<h4 class="author">Vignette Author</h4>
+<h1 class="title toc-ignore">Development notes</h1>
+<h4 class="author">Ying Jin</h4>
 <h4 class="date">2025-06-18</h4>
 
 
 
-<div id="dynamic-mds" class="section level1">
-<h1>Dynamic MDS</h1>
+<div id="visualization-methods" class="section level1">
+<h1>Visualization methods</h1>
+<div id="dynamic-mds" class="section level2">
+<h2>Dynamic MDS</h2>
 <p>In real dataset, because of the presence of missing value (all
 missing or missing complete pairs), some correlation measure cannot be
 calculated at some time slices. In such scenarios, Dynamic penalization
@@ -252,6 +254,18 @@ become possible, because it is not possible to calculate the difference
 between configuration.</p>
 <p>We could potentially calculate the difference of nodes that exist in
 both slices.</p>
+</div>
+<div id="splines-mds" class="section level2">
+<h2>Splines MDS</h2>
+</div>
+</div>
+<div id="visual-improvments" class="section level1">
+<h1>Visual improvments</h1>
+<ul>
+<li>Automatically create time index</li>
+<li>Variable selection to include/exclude in the graph</li>
+<li>Smaller label font, transparent nodes</li>
+</ul>
 </div>
 
 
