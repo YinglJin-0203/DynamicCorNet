@@ -35,8 +35,10 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              uiOutput("varnames1")),
            
            # main panel
-           mainPanel(dataTableOutput("show_df")
+           mainPanel(dataTableOutput("show_df"),
                      # also add summary for selected variable
+                     dataTableOutput("sum_tb"),
+                     plotOutput("sum_plot")
                      )
   )),
   
@@ -60,40 +62,42 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              
              # main panel
              mainPanel(plotOutput("netp"))
-           ))
+           )),
+  
+  # tab 3: pairwise correlation over time
+  tabPanel(title = "Pairwise correlation overtime",
+           sidebarLayout(
+             # side bar
+             sidebarPanel(uiOutput("varnames3")),
+             
+             # main panel
+             mainPanel(
+               plotOutput("trendp"),
+               fluidRow(
+                 column(6, tableOutput("sum_tb_temp1")),
+                 column(6, tableOutput("sum_tb_temp1"))
+                 ))
+               
+           )),
+  
+  # tab 4: correlation heatmap at one time slice
+  tabPanel(title = "Correlation structure at static time points",
+           sidebarLayout(
+             # side bar
+             sidebarPanel(uiOutput("time_bar4")),
+             
+             # main panel
+             mainPanel(
+               plotOutput("heatmap")
+           )))
 )
   
-  # sidebarLayout(
-  #   sidebarPanel(
-  #     # upload file
-  #     fileInput(inputId = "df_path", label = "Upload data",
-  #               accept = c(".csv")), # Maybe add more data types? 
-  #     
-
-  #     
-  #     # type of correlation
-  #     
-  #   ),
-  # 
-  # 
-  # # display
-  # mainPanel(
-  #   navset_card_underline(
-  #     nav_panel("Data", dataTableOutput("show_df")),
-  #     nav_panel("Network", plotOutput("netp"), width = "100%", height = "600px"),
-  #     nav_panel("Temporal trend", plotOutput("trendp"))
-  #   )
-  # )
-  # 
-  # )
-  # 
-
-
-
+  
 #### Server ####
 
 server <- function(input, output) {
   # tab 1
+  ## data preview
   df <- reactive({
     req(input$df_path)
     read.csv(input$df_path$datapath)
@@ -103,11 +107,28 @@ server <- function(input, output) {
     options = list(scrollX = T, fixedHeader=T)
   )
   
-  # variable list
+  ## variable list
   output$varnames1 <- renderUI({
     req(df())
-    checkboxGroupInput("select_var1", label = "Variables", choices = colnames(df()))
+    selectInput("select_var1", label = "Variables", choices = colnames(df()), 
+                       selected = colnames(df())[3])
   })
+  
+  ## summary of variables (across all time)
+  
+  # output$sum_tb <- renderDataTable({
+  #   sum_var <- df()[, input$select_var1]
+  #   if(is.numeric(sum_var)){
+  #     data.frame(N = length(sum_var), Nmiss=sum(is.na(sum_var)), 
+  #                Min = min(sum_var, na.rm = T), Mean=mean(sum_var, na.rm=T),
+  #                Median=median(sum_var, na.rm = T), Max = max(sum_var, na.rm =T),
+  #                SD = sd(sum_var, na.rm = T))
+  #   }
+  #   else{
+  #     data.frame(N = length(sum_var), Nmiss=sum(is.na(sum_var)))
+  #   }
+  # }, options = list(dom="t"))
+  # 
   
   # tab 2
   ## time axis
@@ -153,30 +174,63 @@ server <- function(input, output) {
                                  layout = as.matrix(coord_list()[[input$time_bar]]),
                                  vertex.frame.color=NA, vertex.label.cex=0.5,
                                  vertex.color = rgb(0.2, 0.4, 0.8, alpha=0.4)))
-
-  # output$trendp <- renderPlot({
-  #   req(df())
-  #   df_pair <- df()[, c("id", "time", input$select_var)]
-  #   # individual trend
-  #   p1 <- df_pair %>%
-  #     pivot_longer(input$select_var) %>%
-  #     ggplot(aes(x=time, y=value, group=time))+
-  #     geom_boxplot()+geom_jitter(size=0.5)+
-  #     facet_wrap(~name, ncol=1)+
-  #     labs(x="Time", y=" ")+
-  #     scale_x_continuous(breaks = 1: length(unique(df()$time)))
-  #   # correlation trend
-  #   p2 <- df_pair %>% group_by(time) %>%
-  #     group_modify(~{data.frame(cor = cor(.x[, input$select_var], method = input$cor_type,
-  #                                         use = "pairwise.complete.obs")[1, 2])})  %>%
-  #     ungroup() %>% ggplot(aes(x=time, y=cor))+
-  #     geom_point()+
-  #     geom_line()+
-  #     labs(title = "Empirical correlation", x = "Time", y = " ")+
-  #     scale_x_continuous(breaks = 1: length(unique(df()$time)))
-  #  pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
-  #  pall
-  # })
+  # tab3
+  ## variable list
+  output$varnames3 <- renderUI({
+    req(df())
+    checkboxGroupInput("select_var3", label = "Variables", choices = colnames(df()), 
+                       selected = colnames(df())[3:4])
+  })
+  ## plot
+  output$trendp <- renderPlot({
+    req(df())
+    df_pair <- df()[, c("id", "time", input$select_var3)]
+    # individual trend
+    p1 <- df_pair %>%
+      pivot_longer(input$select_var3) %>%
+      ggplot(aes(x=time, y=value, group=time))+
+      geom_boxplot()+geom_jitter(size=0.5)+
+      facet_wrap(~name, ncol=1)+
+      labs(x="Time", y=" ")+
+      scale_x_continuous(breaks = 1: length(unique(df()$time)))
+    # correlation trend
+    p2 <- df_pair %>% group_by(time) %>%
+      group_modify(~{data.frame(cor = cor(.x[, input$select_var3], method = input$cor_type,
+                                          use = "pairwise.complete.obs")[1, 2])})  %>%
+      ungroup() %>% ggplot(aes(x=time, y=cor))+
+      geom_point()+
+      geom_line()+
+      labs(title = "Empirical correlation", x = "Time", y = " ")+
+      scale_x_continuous(breaks = 1: length(unique(df()$time)))
+   pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
+   pall
+  })
+  ## temporal summary statistics
+  # output$sum_tb_temp1 <- renderDataTable({
+  #   tb1 <- df()[, c("id", "time", input$select_var3[1])] %>%
+  #     group_by(time) %>%
+  #     group_modify(~{data.frame(N = length(.x), Nmiss=sum(is.na(.x)), Min = min(.x, na.rm = T),
+  #                               Mean=mean(.x, na.rm=T), Median=median(.x, na.rm = T),
+  #                               Max = max(.x, na.rm =T), SD = sd(.x, na.rm = T))
+  # 
+  # })})
+  
+  # tab 4
+  output$time_bar4 <- renderUI({
+    req(df())
+    # time bar
+    Tmax <- length(unique(df()$time))
+    sliderInput("time_bar4", "Time (index)", min=1, max = Tmax, value=1, step = 1, ticks = F)
+  })
+  output$heatmap <- renderPlot({
+    cormat <- cor(subset(df() %>% filter(time==input$time_bar4), 
+                         select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
+    col_id <- colnames(cormat)[!is.na(diag(cormat))] 
+    cormat <- cormat[col_id, col_id]
+    heatmap(cormat)
+  })
+   
+  
 
 }
 

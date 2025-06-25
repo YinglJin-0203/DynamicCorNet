@@ -30,7 +30,7 @@ For "empty slices", where no data is available for plot, we could skip this slid
 
 - write a function for it
 
-# Visual improvments
+# Improvments
 
 1. Automatically create time index
 
@@ -38,6 +38,10 @@ For "empty slices", where no data is available for plot, we could skip this slid
 
 3.  Smaller label font, transparent nodes
 
-# Data 
+4. normalization:  How to standardize longitudinal data? 
 
-- How to standardize longitudinal data? 
+5: Summary: how to summary longtiudinal/non-longitudinal variables? 
+
+5. For now all the variables are still assumed to be numeric. What if we would like to include categorical variables
+  - What type of correlation? How to code the values?
+  - How to write 
