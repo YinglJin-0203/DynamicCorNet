@@ -3,7 +3,7 @@
 
 
 GetAdjMat <- function(data, sim = "correlation", cor_method = "pearson",
-                      afunc="absolute"){
+                      afunc="absolute", mds_type="Spline"){
   # split data by time
   # similarity matrix
   cor_mat <- data %>% 
@@ -14,11 +14,13 @@ GetAdjMat <- function(data, sim = "correlation", cor_method = "pearson",
   # remove NA in the correlation matrix
   # these NAs happen because 
   # 1. one or both variables is all missing, or
-  cor_mat <- lapply(cor_mat, function(x){
-    col_name <- colnames(x)[!is.na(diag(x))] 
-    return(x[col_name, col_name])})
-  # 2. there are no pairwise complete observations
-  cor_mat <- lapply(cor_mat, function(x){x[complete.cases(x), complete.cases(x)]})
+  if(mds_type=="Dynamic"){
+    cor_mat <- lapply(cor_mat, function(x){
+      col_name <- colnames(x)[!is.na(diag(x))] 
+      return(x[col_name, col_name])})
+    # 2. there are no pairwise complete observations
+    cor_mat <- lapply(cor_mat, function(x){x[complete.cases(x), complete.cases(x)]})
+  }
   
   # similarity matrix
   sim_mat <- lapply(cor_mat, abs)

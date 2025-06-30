@@ -38,7 +38,7 @@ reshape_configs <- function(vec, P, ndim, Tmax) {
 # Stress function with temporal penalty
 # vec: coordinates at this iteration
 # P is a vector, each element corresponding to the number of nodes at each time point
-stress_function <- function(vec, diss_list, P, ndim, Tmax, lambda) {
+stress_DynMDS <- function(vec, diss_list, P, ndim, Tmax, lambda) {
   configs <- reshape_configs(vec, P, ndim, Tmax)
   stress <- 0
   # Kruskal stress
@@ -110,7 +110,7 @@ DynamicMDS <- function(adj_mat, lambda=10){
   # optimization BFGS
   result <- optim(
       par = flatten_configs(init_coord),
-      fn = stress_function,
+      fn = stress_DynMDS,
       diss_list = dis_mat,
       P = P,
       ndim = 2,

@@ -8,6 +8,7 @@ library(here)
 library(DT)
 library(tidyverse)
 library(gridExtra)
+library(arsenal)
 
 
 #### Helper functions #### 
@@ -16,7 +17,7 @@ source(here("helpers/Stress.R"))
 source(here("helpers/AdjacencyMat.R"))
 source(here("helpers/DynNet.R"))
 source(here("helpers/DynamicMDS.R"))
-
+source(here("helpers/SplinesMDS.R"))
 
 #### User interface ####
 
@@ -47,6 +48,10 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            sidebarLayout(
              # side bar
              sidebarPanel(
+               # visualization type
+               selectInput("mds_type", label = "Method of visualization",
+                           choices = list("Splines", "Dynamic"),
+                           selected = "Splines"),
                # correlation type
                selectInput("cor_type", label="Type of correlation",
                            choices = list("pearson", "spearman")),
@@ -73,12 +78,12 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              # main panel
              mainPanel(
                plotOutput("trendp"),
-               fluidRow(
-                 column(6, tableOutput("sum_tb_temp1")),
-                 column(6, tableOutput("sum_tb_temp1"))
-                 ))
+               tableOutput("sum_tb_temp1"),
+               tableOutput("sum_tb_temp2")
+                 )
+             )
                
-           )),
+           ),
   
   # tab 4: correlation heatmap at one time slice
   tabPanel(title = "Correlation structure at static time points",
@@ -151,10 +156,12 @@ server <- function(input, output) {
   adj_mat <- reactive({
     req(df())
     if(is.null(confirmed())){
-      GetAdjMat(data=subset(df(), select = -c(id)), cor_method = input$cor_type)
+      GetAdjMat(data=subset(df(), select = -c(id)), cor_method = input$cor_type, 
+                mds_type = input$mds_type)
     }
     else{
-      GetAdjMat(data=df()[, c("time", confirmed())], cor_method = input$cor_type)
+      GetAdjMat(data=df()[, c("time", confirmed())], cor_method = input$cor_type,
+                mds_type = input$mds_type)
     }
   })
 
@@ -167,13 +174,19 @@ server <- function(input, output) {
   # calculate coordinates
   coord_list <- reactive({
     req(adj_mat())
-    DynamicMDS(adj_mat(), 5)
+    if(input$mds_type=="Splines"){
+      SplinesMDS(adj_mat(), 5, K = 10, P = dim(adj_mat()[[1]])[1], tid = 1:length(adj_mat()))
+    }
+    else{
+      DynamicMDS(adj_mat(), 5)
+    }
   })
 
   output$netp <- renderPlot(plot(graph_list()[[input$time_bar]],
                                  layout = as.matrix(coord_list()[[input$time_bar]]),
-                                 vertex.frame.color=NA, vertex.label.cex=0.5,
-                                 vertex.color = rgb(0.2, 0.4, 0.8, alpha=0.4)))
+                                 vertex.frame.color=rgb(0.2, 0.4, 0.8, alpha=0.4), 
+                                 vertex.label.cex=0.5,
+                                 vertex.color = V(graph_list()[[input$time_bar]])$color))
   # tab3
   ## variable list
   output$varnames3 <- renderUI({
@@ -206,14 +219,17 @@ server <- function(input, output) {
    pall
   })
   ## temporal summary statistics
-  # output$sum_tb_temp1 <- renderDataTable({
-  #   tb1 <- df()[, c("id", "time", input$select_var3[1])] %>%
-  #     group_by(time) %>%
-  #     group_modify(~{data.frame(N = length(.x), Nmiss=sum(is.na(.x)), Min = min(.x, na.rm = T),
-  #                               Mean=mean(.x, na.rm=T), Median=median(.x, na.rm = T),
-  #                               Max = max(.x, na.rm =T), SD = sd(.x, na.rm = T))
-  # 
-  # })})
+  output$sum_tb_temp1 <- renderDataTable({
+   df()[, c("time", input$select_var3[1])] %>%
+      group_by(time) %>%
+      group_modify(~{data.frame(N = length(.x[, input$select_var3[1]]), 
+                                Nmiss=sum(is.na(.x[, input$select_var3[1]])), 
+                                # Min = min(.x, na.rm = T),
+                                # Mean=mean(.x, na.rm=T), Median=median(.x, na.rm = T),
+                                # Max = max(.x, na.rm =T), SD = sd(.x, na.rm = T)
+                                )
+
+  })})
   
   # tab 4
   output$time_bar4 <- renderUI({
