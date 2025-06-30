@@ -28,7 +28,9 @@ For "empty slices", where no data is available for plot, we could skip this slid
 
 ## Splines MDS
 
-- write a function for it
+- The time may not be a regular grid. For Spline basis, we cannot use time index. We need to use the original time grid
+- How to initialize layout, since the first slice may have missing variables
+- For sub network plot, what if all of the variables selected are missing? It's gonna through error.
 
 # Improvments
 
