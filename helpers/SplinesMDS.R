@@ -20,7 +20,7 @@ library(splines2)
 # init_coord: P by 2 matirx of initial coordinates 
 #             (inital offset so that the points don't all start with zero)
 
-stress_SplMDS <- function(dissim_list, xi_vec, P=10, K=20, tid=tid, lambda=1, init_coord){
+stress_SplMDS <- function(xi_vec, dissim_list, P=10, K=20, tid=tid, lambda=1, init_coord){
   
   # distance on lower dimension
   xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
@@ -51,7 +51,11 @@ stress_SplMDS <- function(dissim_list, xi_vec, P=10, K=20, tid=tid, lambda=1, in
     stress_t = sqrt(sum((diss-dist)^2, na.rm = T)/sum(diss^2, na.rm = T))
     return(stress_t)}, 
     dissim_list, dist_list)
-  stress <- sum(stress)
+  stress <- sum(stress[!is.infinite(stress)], na.rm=T)
+  
+  # if(any(is.infinite(stress))){
+  #   warning(paste("Variables showed perfect similarity at t =", which(is.infinite(stress))))
+  # }
   
   # penalization
   penal_c1 <- sapply(1:P, function(x){t(xi1[x, ]) %*% t(Xmat2dev) %*% Xmat2dev %*% xi1[x, ]})

@@ -9,6 +9,7 @@ library(DT)
 library(tidyverse)
 library(gridExtra)
 library(arsenal)
+theme_set(theme_minimal())
 
 
 #### Helper functions #### 
@@ -39,7 +40,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            mainPanel(dataTableOutput("show_df"),
                      # also add summary for selected variable
                      dataTableOutput("sum_tb"),
-                     plotOutput("sum_plot")
+                     plotOutput("miss_plot")
                      )
   )),
   
@@ -119,6 +120,17 @@ server <- function(input, output) {
                        selected = colnames(df())[3])
   })
   
+  ## missing plot
+  output$miss_plot <- renderPlot({
+    df()[, c("id", "time", input$select_var1)] %>%
+      filter(complete.cases(.)) %>%
+      ggplot(aes(x=time, y=as.factor(id)))+
+      geom_tile()+
+      scale_x_continuous(breaks = unique(df()$time))+
+      theme(axis.text.y = element_blank())+
+      labs(x="Time index", y="Participant", title = "Missing values")
+  })
+  
   ## summary of variables (across all time)
   
   # output$sum_tb <- renderDataTable({
@@ -156,7 +168,7 @@ server <- function(input, output) {
   adj_mat <- reactive({
     req(df())
     if(is.null(confirmed())){
-      GetAdjMat(data=subset(df(), select = -c(id)), cor_method = input$cor_type, 
+      GetAdjMat(data=subset(df(), select = -c(id)), cor_method = input$cor_type,
                 mds_type = input$mds_type)
     }
     else{
@@ -182,11 +194,22 @@ server <- function(input, output) {
     }
   })
 
-  output$netp <- renderPlot(plot(graph_list()[[input$time_bar]],
-                                 layout = as.matrix(coord_list()[[input$time_bar]]),
-                                 vertex.frame.color=rgb(0.2, 0.4, 0.8, alpha=0.4), 
-                                 vertex.label.cex=0.5,
-                                 vertex.color = V(graph_list()[[input$time_bar]])$color))
+  # plot
+  output$netp <- renderPlot({
+    req(input$time_bar)
+    withProgress(
+      expr = {plot(graph_list()[[input$time_bar]],
+           layout = as.matrix(coord_list()[[input$time_bar]]),
+           vertex.frame.color=rgb(0.2, 0.4, 0.8, alpha=0.4),
+           vertex.label.cex=0.5,
+           vertex.color = V(graph_list()[[input$time_bar]])$color)},
+      value=0, message = "Processing", detail="This may take a while...")
+    incProgress(1)
+    
+    cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
+    if(any(cond)){warning(paste("Data showed perfect similarity at time", which(cond)))}
+    })
+  
   # tab3
   ## variable list
   output$varnames3 <- renderUI({
@@ -194,9 +217,10 @@ server <- function(input, output) {
     checkboxGroupInput("select_var3", label = "Variables", choices = colnames(df()), 
                        selected = colnames(df())[3:4])
   })
+  
   ## plot
   output$trendp <- renderPlot({
-    req(df())
+    req(df(), input$select_var3)
     df_pair <- df()[, c("id", "time", input$select_var3)]
     # individual trend
     p1 <- df_pair %>%
@@ -219,17 +243,17 @@ server <- function(input, output) {
    pall
   })
   ## temporal summary statistics
-  output$sum_tb_temp1 <- renderDataTable({
-   df()[, c("time", input$select_var3[1])] %>%
-      group_by(time) %>%
-      group_modify(~{data.frame(N = length(.x[, input$select_var3[1]]), 
-                                Nmiss=sum(is.na(.x[, input$select_var3[1]])), 
-                                # Min = min(.x, na.rm = T),
-                                # Mean=mean(.x, na.rm=T), Median=median(.x, na.rm = T),
-                                # Max = max(.x, na.rm =T), SD = sd(.x, na.rm = T)
-                                )
+  # output$sum_tb_temp1 <- renderDataTable({
+  #  df()[, c("time", input$select_var3[1])] %>%
+  #     group_by(time) %>%
+  #     group_modify(~{data.frame(N = length(.x[, input$select_var3[1]]), 
+  #                               Nmiss=sum(is.na(.x[, input$select_var3[1]])), 
+  #                               # Min = min(.x, na.rm = T),
+  #                               # Mean=mean(.x, na.rm=T), Median=median(.x, na.rm = T),
+  #                               # Max = max(.x, na.rm =T), SD = sd(.x, na.rm = T)
+  #                               )
 
-  })})
+  # })})
   
   # tab 4
   output$time_bar4 <- renderUI({
