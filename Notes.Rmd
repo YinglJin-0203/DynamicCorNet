@@ -38,7 +38,7 @@ For "empty slices", where no data is available for plot, we could skip this slid
 
 2. Variable and time slice summary on first page
 
-3.  Smaller label font, transparent nodes
+3. Time for computation
 
 4. normalization:  How to standardize longitudinal data? 
 

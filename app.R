@@ -1,7 +1,7 @@
 # This shiny app is built for network visualization 
 # of temporal multivariate data
 
-rm(list=ls())
+# rm(list=ls())
 library(shiny)
 library(bslib)
 library(here)

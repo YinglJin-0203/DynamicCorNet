@@ -1,5 +1,9 @@
 df <- read.csv("data/AppData.csv")
-df %>% filter(time==1) %>% View()
+library(tidyverse)
+AppDataSmall <- df %>% filter(id %in% sample(unique(df$id), size = 30, replace = F))
+
+write.csv(AppDataSmall, file = "data/AppDataSmall.csv", row.names = F)
+
 
 df[, c("id", "time", "TotVol_Ovary")] %>%
   filter(complete.cases(.)) %>%
