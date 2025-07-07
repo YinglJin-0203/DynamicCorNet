@@ -91,7 +91,7 @@ maxcor <- 0.99 # the maximum correlation strenght
 cor_g1 <- lapply(1:Tmax,
                  function(t){
                    cormat <- diag(1, nrow = 3, ncol=3)
-                   cormat[row(cormat)!=col(cormat)] <- ifelse(0.05*t<=maxcor, 0.05*t, maxcor)
+                   cormat[row(cormat)!=col(cormat)] <- 0.05*(t-1)
                    return(cormat)
                  })
 cor_g1 <- simplify2array(cor_g1)
@@ -101,13 +101,13 @@ apply(cor_g1, 3, matrixcalc::is.positive.semi.definite)
 cor_g2 <- lapply(1:Tmax,
                  function(t){
                    cormat <- diag(1, nrow = 3, ncol = 3)
-                   cormat[row(cormat)!=col(cormat)] <- ifelse((1-0.05*t)>0, 1-0.05*t, 0.01)
+                   cormat[row(cormat)!=col(cormat)] <- -0.025*(21-t)
                    return(cormat)
                  })
 cor_g2 <- simplify2array(cor_g2)
 apply(cor_g2, 3, matrixcalc::is.positive.semi.definite)
 
-## group 3: 0-0.03
+## group 3
 cor_g3 <- lapply(1:Tmax,
                  function(t){
                    cormat <- diag(1, nrow = 3, ncol=3)
@@ -123,7 +123,7 @@ cor_G <- lapply(1:Tmax,
                 function(t){
                   cormat <- diag(1, nrow = 3, ncol = 3)
                   cormat[row(cormat) != col(cormat)] <- 0
-                  cormat[1,2] <- cormat[2,1] <- ifelse(-0.03*(20-t)<0 , -0.03*(20-t), -0.01)
+                  cormat[1,2] <- cormat[2,1] <- ifelse(0.03*(21-t)>0, 0.03*(21-t), 0.01)
                   return(cormat)
                 })
 
@@ -146,7 +146,7 @@ colnames(df_sim) <- c("id", "time", paste0("X", 1:10))
 ## By slice
 df_sim %>% 
   group_by(time) %>%
-  group_map(.f=~{cov(.x %>% select(starts_with("X")))[1, 1:6]})
+  group_map(.f=~{cor(.x %>% select(starts_with("X")))[1, 1:6]})
 ## Overall
 heatmap(cor(df_sim %>% select(starts_with("X"))))
 
