@@ -151,9 +151,10 @@ server <- function(input, output) {
   ## time axis
   output$time_bar <- renderUI({
     req(df())
-    # time bar
-    Tmax <- length(unique(df()$time))
-    sliderInput("time_bar", "Time (index)", min=1, max = Tmax, value=1, step = 1, ticks = F)
+    # time bar: by the original time 
+    Tmax <- max(df()$time)
+    sliderInput("time_bar", "Time (index)", min=1, max = Tmax, value=1, step = 1, 
+                ticks = F)
   }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
   
   output$varnames2 <- renderUI({
@@ -168,7 +169,8 @@ server <- function(input, output) {
   adj_mat <- reactive({
     req(df())
     if(is.null(confirmed())){
-      GetAdjMat(data=subset(df(), select = -c(id)), cor_method = input$cor_type,
+      GetAdjMat(data=subset(df(), select = -c(id, time_id)), 
+                cor_method = input$cor_type,
                 mds_type = input$mds_type)
     }
     else{
@@ -187,7 +189,8 @@ server <- function(input, output) {
   coord_list <- reactive({
     req(adj_mat())
     if(input$mds_type=="Splines"){
-      SplinesMDS(adj_mat(), 5, K = 10, P = dim(adj_mat()[[1]])[1], tid = 1:length(adj_mat()))
+      SplinesMDS(adj_mat(), 5, K = 10, P = dim(adj_mat()[[1]])[1], 
+                 tvec = sort(unique(df()$time)))
     }
     else{
       DynamicMDS(adj_mat(), 5)
@@ -197,14 +200,22 @@ server <- function(input, output) {
   # plot
   output$netp <- renderPlot({
     req(input$time_bar)
+    # find the location index
+    tvec <- sort(unique(df()$time))
+    input_tid <- which(tvec==input$time_bar)
+    # plot
     par(mar = c(0, 0, 0, 0))
     withProgress(
-      expr = {plot(graph_list()[[input$time_bar]],
-           layout = as.matrix(coord_list()[[input$time_bar]]),
+      expr = {
+        if(!input$time_bar %in% tvec){
+          message("No measurements at current time point")}
+        
+        plot(graph_list()[[input_tid]],
+           layout = as.matrix(coord_list()[[input_tid]]),
            vertex.frame.color=rgb(0.2, 0.4, 0.8, alpha=0.4),
            vertex.label.cex=1,
            vertex.size = 20, 
-           vertex.color = V(graph_list()[[input$time_bar]])$color)},
+           vertex.color = V(graph_list()[[input_tid]])$color)},
       value=0, message = "Processing", detail="This may take a while...")
     incProgress(1)
     
@@ -261,7 +272,7 @@ server <- function(input, output) {
   output$time_bar4 <- renderUI({
     req(df())
     # time bar
-    Tmax <- length(unique(df()$time))
+    Tmax <- max(df()$time)
     sliderInput("time_bar4", "Time (index)", min=1, max = Tmax, value=1, step = 1, ticks = F)
   })
   output$heatmap <- renderPlot({

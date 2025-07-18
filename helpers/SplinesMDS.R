@@ -20,7 +20,7 @@ library(splines2)
 # init_coord: P by 2 matirx of initial coordinates 
 #             (inital offset so that the points don't all start with zero)
 
-stress_SplMDS <- function(xi_vec, dissim_list, P=10, K=20, tid=tid, lambda=1, init_coord){
+stress_SplMDS <- function(xi_vec, dissim_list, P=10, K=20, tvec=tvec, lambda=1, init_coord){
   
   # distance on lower dimension
   xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
@@ -29,8 +29,8 @@ stress_SplMDS <- function(xi_vec, dissim_list, P=10, K=20, tid=tid, lambda=1, in
   # basis functions matrix, T by K
   # Xmat <- bs(tid, df = K)
   # basic functions and second derivative
-  Xmat <- bSpline(tid, df = K, degree = 3, derivs = 0)
-  Xmat2dev <- bSpline(tid, df = K, degree = 3, derivs = 2)
+  Xmat <- bSpline(tvec, df = K, degree = 3, derivs = 0)
+  Xmat2dev <- bSpline(tvec, df = K, degree = 3, derivs = 2)
   
   # coordinates, P by T
   # center around initial coordinates
@@ -38,6 +38,7 @@ stress_SplMDS <- function(xi_vec, dissim_list, P=10, K=20, tid=tid, lambda=1, in
   c2 <- init_coord[,2] + xi2 %*% t(Xmat)
   
   # pariwise euclidean distance
+  tid <- seq_along(tvec)
   coord_list <- lapply(tid, function(t){cbind(c1[, t], c2[, t])})
   dist_list <- lapply(coord_list, dist, diag=T, upper=T)
   dist_list <- lapply(dist_list, as.matrix)
@@ -78,7 +79,9 @@ stress_SplMDS <- function(xi_vec, dissim_list, P=10, K=20, tid=tid, lambda=1, in
 # P: total number of variables/maximum number of nodes across all time slices
 # 
 
-SplinesMDS <- function(adj_mat, lambda, K, P, tid){
+SplinesMDS <- function(adj_mat, lambda, K, P, tvec){
+  
+  tid <- seq_along(tvec) # time index
   
   # dissimilarity matrix
   # package WGCNA doesn't work. I need to write my own TOM function later
@@ -95,7 +98,7 @@ SplinesMDS <- function(adj_mat, lambda, K, P, tid){
     par = rnorm(P*K*2), 
     fn = stress_SplMDS,
     dissim_list = dis_mat,
-    P = P, K = K, tid = tid, lambda = lambda, init_coord = init_coord,
+    P = P, K = K, tvec = tvec, lambda = lambda, init_coord = init_coord,
     method = "BFGS", control = list(maxit=500))
   
   # calculate coordinates
@@ -103,7 +106,7 @@ SplinesMDS <- function(adj_mat, lambda, K, P, tid){
   xi2 <- matrix(final_xi_vec$par[(P*K+1): (P*K*2)], nrow = P)
   
   # Xmat <- bs(tid, df = 20)
-  Xmat <- bSpline(tid, df = K, degree = 3, derivs = 0)
+  Xmat <- bSpline(tvec, df = K, degree = 3, derivs = 0)
   c1 <- init_coord[,1] + xi1 %*% t(Xmat)
   c2 <- init_coord[,2] + xi2 %*% t(Xmat)
   
