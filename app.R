@@ -197,11 +197,13 @@ server <- function(input, output) {
   # plot
   output$netp <- renderPlot({
     req(input$time_bar)
+    par(mar = c(0, 0, 0, 0))
     withProgress(
       expr = {plot(graph_list()[[input$time_bar]],
            layout = as.matrix(coord_list()[[input$time_bar]]),
            vertex.frame.color=rgb(0.2, 0.4, 0.8, alpha=0.4),
-           vertex.label.cex=0.5,
+           vertex.label.cex=1,
+           vertex.size = 20, 
            vertex.color = V(graph_list()[[input$time_bar]])$color)},
       value=0, message = "Processing", detail="This may take a while...")
     incProgress(1)

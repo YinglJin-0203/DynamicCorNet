@@ -32,18 +32,27 @@ For "empty slices", where no data is available for plot, we could skip this slid
 - How to initialize layout, since the first slice may have missing variables
 - For sub network plot, what if all of the variables selected are missing? It's gonna through error.
 
-# Improvments
+# App improvments
 
 1. Automatically create time index
-
 2. Variable and time slice summary on first page
-
-3. Time for computation
-
+3. Reduce time for computation
 4. normalization:  How to standardize longitudinal data? 
-
 5: Summary: how to summary longtiudinal/non-longitudinal variables? 
 
-5. For now all the variables are still assumed to be numeric. What if we would like to include categorical variables
+6: Make the size of nodes change with numeric values? 
+    Can't really do that because the node represent variables, instead of a specific value. In fact, one node represents a vector of the same variable of all subjects in the sample at a specific time point. 
+    
+6. For now all the variables are still assumed to be numeric. What if we would like to include categorical variables
   - What type of correlation? How to code the values?
   - How to write 
+  
+# Journal
+
+[Journal of statistical software](https://www.jstatsoft.org/mission)
+
+- Case study
+- Reproducible code
+- Comparison to existing implementations
+- Shiny app alone may not be adequate. A package is needed. 
+  - stable version and developing version 

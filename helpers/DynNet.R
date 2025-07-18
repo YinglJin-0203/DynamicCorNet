@@ -39,7 +39,7 @@ graph_dyn_net <- function(adj_mat, cor_th = 0.3, mds_type = "Splines"){
     
     # node color: unfilled circle for missing variables
     V(net_t)$color <- ifelse(!V(net_t)$name %in% miss_node, rgb(0.2, 0.4, 0.8, alpha=0.4), NA)
-    
+
     # node properties
     # node color
     # node size
