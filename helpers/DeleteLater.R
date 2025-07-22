@@ -1,27 +1,34 @@
-df <- read.csv("data/AppData2.csv")
+df <- read.csv("data/AppDataSmall2.csv")
 library(tidyverse)
 AppDataSmall2 <- df %>% filter(id %in% sample(unique(df$id), size = 20, replace = F))
 write.csv(AppDataSmall2, file = here("data/AppDataSmall2.csv"), row.names = F)
-adj_list <- GetAdjMat(data=subset(df, select = -c(id, time_id)), 
-                      cor_method = "pearson",
-          mds_type = "Splines")
-names(adj_list)
 
-graph_list <- graph_dyn_net(adj_list, cor_th = 0.3)
-names(graph_list)
+colnames(df)
 
-SplinesMDS(adj_list, 5, K = 10, P = 20, 
-           tvec = as.numeric(unique(df$time)))
+var1 <- 'HC_A'
+df_sum <- df[, c("time", 'HC_A')]
+lapply(df_var, class)
+as.factor(df_sum$time)
 
-mat_try <- matrix(0, nrow=3, ncol=3)
-mat_try[row(mat_try)==col(mat_try)] <- 1
-mat_try[row(mat_try)!=col(mat_try)] <- -0.6
-matrixcalc::is.positive.semi.definite(mat_try)
 
-tvec <- sort(unique(df$time))
-which(tvec==7)
+tb_sum <- df_sum %>%  group_by(time) %>% 
+  summarise_at(var1, 
+               function(x){
+                 sum_vec <- t(c(min(x, na.rm = T), mean(x, na.rm=T), median(x, na.rm=T), 
+                                max(x, na.rm = T),
+                                sd(x, na.rm=T), sum(is.na(x))))
+                return(sum_vec)
+               })
+colnames(tb_sum) <- c("Time", "Min", "Mean", "Median", "Max", "SD", "Nmiss")
+tb_sum
+  group_map(~{
+    .x %>% select('TotVol_Uterus')
+  })
 
-rm(list=ls())
-
-library("colorspace")
-hcl_palettes(plot = TRUE)
+ try_sum <- summary(df$TotVol_Uterus)
+as.vector(try_sum)
+ as.matrix(try_sum)
+ 
+ 
+ rm(list = ls())
+ 

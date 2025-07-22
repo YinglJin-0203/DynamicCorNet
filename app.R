@@ -37,10 +37,12 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              uiOutput("varnames1")),
            
            # main panel
-           mainPanel(dataTableOutput("show_df"),
+           mainPanel(h3('Data overview'),
+                     dataTableOutput("show_df"),
                      # also add summary for selected variable
-                     dataTableOutput("sum_tb"),
-                     plotOutput("miss_plot")
+                     h3('Single variable summary'),
+                     dataTableOutput("sum_tb")
+                     # plotOutput("miss_plot")
                      )
   )),
   
@@ -117,35 +119,37 @@ server <- function(input, output) {
   output$varnames1 <- renderUI({
     req(df())
     selectInput("select_var1", label = "Variables", choices = colnames(df()), 
-                       selected = colnames(df())[3])
+                       selected = colnames(df())[5])
   })
   
   ## missing plot
-  output$miss_plot <- renderPlot({
-    df()[, c("id", "time", input$select_var1)] %>%
-      filter(complete.cases(.)) %>%
-      ggplot(aes(x=time, y=as.factor(id)))+
-      geom_tile()+
-      scale_x_continuous(breaks = unique(df()$time))+
-      theme(axis.text.y = element_blank())+
-      labs(x="Time index", y="Participant", title = "Missing values")
-  })
+  # output$miss_plot <- renderPlot({
+  #   df()[, c("id", "time", input$select_var1)] %>%
+  #     filter(complete.cases(.)) %>%
+  #     ggplot(aes(x=time, y=as.factor(id)))+
+  #     geom_tile()+
+  #     scale_x_continuous(breaks = unique(df()$time))+
+  #     theme(axis.text.y = element_blank())+
+  #     labs(x="Time index", y="Participant", title = "Missing values")
+  # })
   
   ## summary of variables (across all time)
   
-  # output$sum_tb <- renderDataTable({
-  #   sum_var <- df()[, input$select_var1]
-  #   if(is.numeric(sum_var)){
-  #     data.frame(N = length(sum_var), Nmiss=sum(is.na(sum_var)), 
-  #                Min = min(sum_var, na.rm = T), Mean=mean(sum_var, na.rm=T),
-  #                Median=median(sum_var, na.rm = T), Max = max(sum_var, na.rm =T),
-  #                SD = sd(sum_var, na.rm = T))
-  #   }
-  #   else{
-  #     data.frame(N = length(sum_var), Nmiss=sum(is.na(sum_var)))
-  #   }
-  # }, options = list(dom="t"))
-  # 
+  output$sum_tb <- renderDataTable({
+    req(df(), input$select_var1)
+    df_sum <- df()[, c("time", input$select_var1)]
+    df_sum %>% 
+      group_by(time) %>%
+      summarise(Min  = min(.data[[input$select_var1]], na.rm = TRUE),
+                Mean = mean(.data[[input$select_var1]], na.rm = TRUE),
+                Median = median(.data[[input$select_var1]], na.rm = TRUE),
+                Max  = max(.data[[input$select_var1]], na.rm = TRUE),
+                SD   = sd(.data[[input$select_var1]], na.rm = TRUE),
+                Nmiss = sum(is.na(.data[[input$select_var1]]) | is.infinite(.data[[input$select_var1]])),
+                .groups = "drop") %>%
+      mutate_at(vars(-time), round, 2)
+  }, options = list(dom="t"))
+
   
   # tab 2
   ## time axis
