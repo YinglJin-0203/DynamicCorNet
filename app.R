@@ -191,10 +191,13 @@ server <- function(input, output) {
 
   # calculate coordinates
   coord_list <- reactive({
-    req(adj_mat())
+    req(adj_mat(), df())
+    t_uniq <- sort(unique(df()$time)) # original time scale
+    t_id <- seq_along(t_uniq) # time index
+    
     if(input$mds_type=="Splines"){
-      SplinesMDS(adj_mat(), 5, K = 10, P = dim(adj_mat()[[1]])[1], 
-                 tvec = sort(unique(df()$time)))
+      SplinesMDS(adj_mat(), lambda = 5, K = 20, P = dim(adj_mat()[[1]])[1], 
+                 tvec = t_uniq)
     }
     else{
       DynamicMDS(adj_mat(), 5)
@@ -203,7 +206,7 @@ server <- function(input, output) {
 
   # plot
   output$netp <- renderPlot({
-    req(input$time_bar)
+    req(input$time_bar, df())
     # find the location index
     tvec <- sort(unique(df()$time))
     input_tid <- which(tvec==input$time_bar)

@@ -1,6 +1,6 @@
 
 # function to calculate adjacency matrix
-
+# data frame must include the variable named "time"
 
 GetAdjMat <- function(data, sim = "correlation", cor_method = "pearson",
                       afunc="absolute", mds_type="Spline"){

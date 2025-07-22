@@ -88,8 +88,9 @@ SplinesMDS <- function(adj_mat, lambda, K, P, tvec){
   dis_mat <- lapply(adj_mat, function(x){1-x})
   
   # initial layout at the first time slice
+  # variables missing at the first slice: random position
   init_dis <- dis_mat[[1]]
-  init_dis[is.na(init_dis)] <- runif(sum(is.na(init_dis)), 0.45, 0.55)
+  init_dis[is.na(init_dis)] <- runif(sum(is.na(init_dis)))
   init_coord <- smacofSym(init_dis, ndim=2, init = "random")
   init_coord <- init_coord$conf
   
