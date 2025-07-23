@@ -1,4 +1,8 @@
 df <- read.csv("data/AppDataSmall2.csv")
+
+df %>% select(time, TotVol_Ovary) %>% 
+  filter(time==1)
+
 library(tidyverse)
 
 View(GetAdjMat)

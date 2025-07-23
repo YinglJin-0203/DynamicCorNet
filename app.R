@@ -3,6 +3,7 @@
 
 # rm(list=ls())
 library(shiny)
+library(shinyWidgets)
 library(bslib)
 library(here)
 library(DT)
@@ -69,7 +70,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              ),
              
              # main panel
-             mainPanel(plotOutput("netp"))
+             mainPanel(plotOutput("netp", width = "100%", height = "600px"))
            )),
   
   # tab 3: pairwise correlation over time
@@ -156,9 +157,9 @@ server <- function(input, output) {
   output$time_bar <- renderUI({
     req(df())
     # time bar: by the original time 
-    Tmax <- max(df()$time)
-    sliderInput("time_bar", "Time (index)", min=1, max = Tmax, value=1, step = 1, 
-                ticks = F)
+    tvec <- sort(unique(df()$time))
+    sliderTextInput("time_bar", "Time", choices = tvec, selected = tvec[1],
+                    grid = TRUE)
   }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
   
   output$varnames2 <- renderUI({
@@ -173,7 +174,7 @@ server <- function(input, output) {
   adj_mat <- reactive({
     req(df())
     if(is.null(confirmed())){
-      GetAdjMat(data=subset(df(), select = -c(id, time_id)), 
+      GetAdjMat(data=subset(df(), select = -c(id)), 
                 cor_method = input$cor_type,
                 mds_type = input$mds_type)
     }
@@ -210,25 +211,25 @@ server <- function(input, output) {
     # find the location index
     tvec <- sort(unique(df()$time))
     input_tid <- which(tvec==input$time_bar)
+    # validate time point
+    
     # plot
-    par(mar = c(0, 0, 0, 0))
     withProgress(
-      expr = {
-        if(!input$time_bar %in% tvec){
-          message("No measurements at current time point")}
-        
-        plot(graph_list()[[input_tid]],
+       value=0, message = "Processing", detail="This may take a while...",
+        {plot(graph_list()[[input_tid]],
            layout = as.matrix(coord_list()[[input_tid]]),
            vertex.frame.color=rgb(0.2, 0.4, 0.8, alpha=0.4),
            vertex.label.cex=1,
            vertex.size = 20, 
-           vertex.color = V(graph_list()[[input_tid]])$color)},
-      value=0, message = "Processing", detail="This may take a while...")
-    incProgress(1)
+           vertex.color = V(graph_list()[[input_tid]])$color, 
+           margin = 0)
     
     cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
     if(any(cond)){warning(paste("Data showed perfect similarity at time", which(cond)))}
-    })
+    
+    incProgress(1)}
+    )
+    }, height = 600, width = "auto")
   
   # tab3
   ## variable list
@@ -279,8 +280,9 @@ server <- function(input, output) {
   output$time_bar4 <- renderUI({
     req(df())
     # time bar
-    Tmax <- max(df()$time)
-    sliderInput("time_bar4", "Time (index)", min=1, max = Tmax, value=1, step = 1, ticks = F)
+    tvec <- sort(unique((df()$time)))
+    sliderTextInput("time_bar4", "Time", choices = tvec, selected = tvec[1],
+                    grid = TRUE)
   })
   output$heatmap <- renderPlot({
     cormat <- cor(subset(df() %>% filter(time==input$time_bar4), 
