@@ -10,6 +10,7 @@ library(DT)
 library(tidyverse)
 library(gridExtra)
 library(arsenal)
+library(htmltools)
 theme_set(theme_minimal())
 
 
@@ -64,6 +65,11 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                            ticks=FALSE),
                # time bar
                uiOutput("time_bar"),
+               # hierarchical grouping
+               checkboxInput("hclust", label = tags$span("Show groupng results", 
+                                                          style = 'font_weight: bold; font-size: 18px;'), 
+                             value = TRUE),
+               numericInput("nclust", label = "Number of groups", value = 3),
                # variable list
                uiOutput("varnames2"),
                actionButton("confirm", "Confirm selection")
@@ -71,7 +77,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              
              # main panel
              mainPanel(plotOutput("netp", width = "100%", height = "600px"))
-           )),
+             )),
   
   # tab 3: pairwise correlation over time
   tabPanel(title = "Pairwise correlation overtime",
@@ -123,23 +129,13 @@ server <- function(input, output) {
                        selected = colnames(df())[5])
   })
   
-  ## missing plot
-  # output$miss_plot <- renderPlot({
-  #   df()[, c("id", "time", input$select_var1)] %>%
-  #     filter(complete.cases(.)) %>%
-  #     ggplot(aes(x=time, y=as.factor(id)))+
-  #     geom_tile()+
-  #     scale_x_continuous(breaks = unique(df()$time))+
-  #     theme(axis.text.y = element_blank())+
-  #     labs(x="Time index", y="Participant", title = "Missing values")
-  # })
-  
   ## summary of variables (across all time)
   
   output$sum_tb <- renderDataTable({
     req(df(), input$select_var1)
     df_sum <- df()[, c("time", input$select_var1)]
-    df_sum %>% 
+    # summary table
+    tb_sum <- df_sum %>% 
       group_by(time) %>%
       summarise(Min  = min(.data[[input$select_var1]], na.rm = TRUE),
                 Mean = mean(.data[[input$select_var1]], na.rm = TRUE),
@@ -147,9 +143,25 @@ server <- function(input, output) {
                 Max  = max(.data[[input$select_var1]], na.rm = TRUE),
                 SD   = sd(.data[[input$select_var1]], na.rm = TRUE),
                 Nmiss = sum(is.na(.data[[input$select_var1]]) | is.infinite(.data[[input$select_var1]])),
+                N = length(.data[[input$select_var1]]), 
                 .groups = "drop") %>%
-      mutate_at(vars(-time), round, 2)
-  }, options = list(dom="t"))
+      mutate(Npct = 100*Nmiss/N) %>%
+      mutate(Nmiss = paste0(Nmiss, " (", round(Npct, 2), "%)")) %>%
+      select(-N, -Npct) %>%
+      mutate_at(vars(-time, -Nmiss), round, 2)
+    # caption
+    cap_text <- paste0("Variable: ", input$select_var1)
+    datatable(tb_sum, 
+              caption=tags$caption(style = 'font-weight: bold; font-size: 15px; color: #2C3E50;',
+                                   cap_text),
+              options = list(dom="t",
+                             columnDefs = list(
+                               list(targets = 0, className = 'dt-left'),   # First column
+                               list(targets = 1:(ncol(tb_sum) - 1), className = 'dt-center')  # All others
+                             ))
+              )
+    
+  })
 
   
   # tab 2
@@ -197,31 +209,70 @@ server <- function(input, output) {
     t_id <- seq_along(t_uniq) # time index
     
     if(input$mds_type=="Splines"){
-      SplinesMDS(adj_mat(), lambda = 5, K = 20, P = dim(adj_mat()[[1]])[1], 
+      SplinesMDS(adj_mat(), lambda = 10, K = 20, P = dim(adj_mat()[[1]])[1], 
                  tvec = t_uniq)
     }
     else{
       DynamicMDS(adj_mat(), 5)
     }
   })
+  
+  # calculated hierarchical groups
+  group_list <- reactive({
+    req(adj_mat(), input$hclust, input$nclust)
+   lapply(adj_mat(),
+          function(x){
+            dis_mat <- 1-x
+            var_id <- which(!is.na(diag(dis_mat)))
+            dis_mat <- dis_mat[var_id, var_id]
+            dis_mat <- as.dist(dis_mat)
+            hclust_fit <- hclust(dis_mat)
+            return(cutree(hclust_fit, k = input$nclust))
+                          })
+  })
 
   # plot
   output$netp <- renderPlot({
-    req(input$time_bar, df())
-    # find the location index
-    tvec <- sort(unique(df()$time))
-    input_tid <- which(tvec==input$time_bar)
-    # validate time point
+    # req(input$time_bar, df(), input$hclust, graph_list(), group_list(), coord_list())
+    # # find the location index
+    # tvec <- sort(unique(df()$time))
+    # input_tid <- which(tvec==input$time_bar)
+    # 
+    # # graph at this time point
+    # graph_t <- graph_list()[[input_tid]]
+    # color_t <- group_list()[[input_tid]]
+    # coord_t <- coord_list()[[input_tid]]
+    # 
+    # if(input$hclust){
+    #   V(graph_t)$color <- color_t[V(graph_t)]
+    # }
     
     # plot
     withProgress(
        value=0, message = "Processing", detail="This may take a while...",
-        {plot(graph_list()[[input_tid]],
-           layout = as.matrix(coord_list()[[input_tid]]),
-           vertex.frame.color=rgb(0.2, 0.4, 0.8, alpha=0.4),
+        {
+          req(input$time_bar, df(), input$hclust, graph_list(), group_list(), coord_list())
+          # find the location index
+          tvec <- sort(unique(df()$time))
+          input_tid <- which(tvec==input$time_bar)
+          
+          # graph at this time point
+          graph_t <- graph_list()[[input_tid]]
+          color_t <- group_list()[[input_tid]]
+          coord_t <- coord_list()[[input_tid]]
+  
+          if(input$hclust){
+            V(graph_t)$color <- color_t[V(graph_t)]
+          }
+
+          # plot
+          # incProgress(0.5, detail = "Plotting")
+          plot(graph_t,
+           layout = as.matrix(coord_t),
+           vertex.frame.color=V(graph_t)$color,
            vertex.label.cex=1,
            vertex.size = 20, 
-           vertex.color = V(graph_list()[[input_tid]])$color, 
+           vertex.color = V(graph_t)$color, 
            margin = 0)
     
     cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
@@ -230,6 +281,14 @@ server <- function(input, output) {
     incProgress(1)}
     )
     }, height = 600, width = "auto")
+  
+  # output$try <- renderPrint({
+  #   
+  #   lapply(1:length(graph_list()),
+  #          function(x){
+  #            print(V(graph_list()[[x]])$color)
+  #          })
+  # })
   
   # tab3
   ## variable list
