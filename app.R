@@ -269,7 +269,7 @@ server <- function(input, output) {
           # incProgress(0.5, detail = "Plotting")
           plot(graph_t,
            layout = as.matrix(coord_t),
-           vertex.frame.color=V(graph_t)$color,
+           vertex.frame.color=ifelse(is.na(V(graph_t)$color), "grey", NA),
            vertex.label.cex=1,
            vertex.size = 20, 
            vertex.color = V(graph_t)$color, 
@@ -309,7 +309,7 @@ server <- function(input, output) {
       geom_boxplot()+geom_jitter(size=0.5)+
       facet_wrap(~name, ncol=1)+
       labs(x="Time", y=" ")+
-      scale_x_continuous(breaks = 1: length(unique(df()$time)))
+      scale_x_continuous(breaks = unique(df()$time))
     # correlation trend
     p2 <- df_pair %>% group_by(time) %>%
       group_modify(~{data.frame(cor = cor(.x[, input$select_var3], method = input$cor_type,
@@ -318,7 +318,7 @@ server <- function(input, output) {
       geom_point()+
       geom_line()+
       labs(title = "Empirical correlation", x = "Time", y = " ")+
-      scale_x_continuous(breaks = 1: length(unique(df()$time)))
+      scale_x_continuous(breaks = 1: unique(df()$time))
    pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
    pall
   })
