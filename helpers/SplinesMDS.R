@@ -20,7 +20,7 @@ library(splines2)
 # init_coord: P by 2 matirx of initial coordinates 
 #             (inital offset so that the points don't all start with zero)
 
-stress_SplMDS <- function(xi_vec, dissim_list, P=10, K=20, tvec=tvec, lambda=1, init_coord){
+stress_SplMDS <- function(xi_vec, dissim_list, P, K=20, tvec=tvec, lambda=1, init_coord){
   
   # distance on lower dimension
   xi1 = matrix(xi_vec[1: (P*K)], nrow = P)

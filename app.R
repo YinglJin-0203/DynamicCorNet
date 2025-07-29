@@ -219,7 +219,7 @@ server <- function(input, output) {
   
   # calculated hierarchical groups
   group_list <- reactive({
-    req(adj_mat(), input$hclust, input$nclust)
+    req(adj_mat(), input$nclust)
    lapply(adj_mat(),
           function(x){
             dis_mat <- 1-x
@@ -233,36 +233,22 @@ server <- function(input, output) {
 
   # plot
   output$netp <- renderPlot({
-    # req(input$time_bar, df(), input$hclust, graph_list(), group_list(), coord_list())
-    # # find the location index
-    # tvec <- sort(unique(df()$time))
-    # input_tid <- which(tvec==input$time_bar)
-    # 
-    # # graph at this time point
-    # graph_t <- graph_list()[[input_tid]]
-    # color_t <- group_list()[[input_tid]]
-    # coord_t <- coord_list()[[input_tid]]
-    # 
-    # if(input$hclust){
-    #   V(graph_t)$color <- color_t[V(graph_t)]
-    # }
-    
     # plot
     withProgress(
        value=0, message = "Processing", detail="This may take a while...",
         {
-          req(input$time_bar, df(), input$hclust, graph_list(), group_list(), coord_list())
+          req(input$time_bar, df(), graph_list(), group_list(), coord_list())
           # find the location index
           tvec <- sort(unique(df()$time))
           input_tid <- which(tvec==input$time_bar)
           
           # graph at this time point
           graph_t <- graph_list()[[input_tid]]
-          color_t <- group_list()[[input_tid]]
+          group_t <- group_list()[[input_tid]]
           coord_t <- coord_list()[[input_tid]]
-  
+          
           if(input$hclust){
-            V(graph_t)$color <- color_t[V(graph_t)]
+            V(graph_t)$color <- group_t[V(graph_t)$name]
           }
 
           # plot
@@ -281,14 +267,6 @@ server <- function(input, output) {
     incProgress(1)}
     )
     }, height = 600, width = "auto")
-  
-  # output$try <- renderPrint({
-  #   
-  #   lapply(1:length(graph_list()),
-  #          function(x){
-  #            print(V(graph_list()[[x]])$color)
-  #          })
-  # })
   
   # tab3
   ## variable list
@@ -322,18 +300,6 @@ server <- function(input, output) {
    pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
    pall
   })
-  ## temporal summary statistics
-  # output$sum_tb_temp1 <- renderDataTable({
-  #  df()[, c("time", input$select_var3[1])] %>%
-  #     group_by(time) %>%
-  #     group_modify(~{data.frame(N = length(.x[, input$select_var3[1]]), 
-  #                               Nmiss=sum(is.na(.x[, input$select_var3[1]])), 
-  #                               # Min = min(.x, na.rm = T),
-  #                               # Mean=mean(.x, na.rm=T), Median=median(.x, na.rm = T),
-  #                               # Max = max(.x, na.rm =T), SD = sd(.x, na.rm = T)
-  #                               )
-
-  # })})
   
   # tab 4
   output$time_bar4 <- renderUI({
@@ -349,7 +315,7 @@ server <- function(input, output) {
     col_id <- colnames(cormat)[!is.na(diag(cormat))] 
     cormat <- cormat[col_id, col_id]
     heatmap(cormat)
-  })
+  }, height = 600, width = "auto")
    
   
 
