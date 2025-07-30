@@ -13,19 +13,21 @@ write.csv(sub_df, file = "data/AppDataSmall.csv", row.names = F)
 
 #### Load data ####
 df <- read.csv("data/AppDataSmall.csv")
-df %>% filter(time==1) %>% View()
+set.seed(730)
+# only use time points where all variables are measured
 
-#### What happened at time point 1?  ####
-adj_list <- GetAdjMat(df %>% select(-id))
+
+#### heatmap and hclust  ####
+# explore the effect of correlation type
+# also the effect of thresholding
+adj_list <- GetAdjMat(df %>% select(-id), cor_method = "spearman")
 graph_list <- graph_dyn_net(adj_list)
-V(graph_list[[1]])$color
-V(graph_list[[1]])
 
-# MDS 
+# splines MDS coordinates
 t_uniq <- sort(unique(df$time))
 coord_list <- SplinesMDS(adj_list, lambda = 10, K = 10, P = dim(adj_list[[1]])[1], 
            tvec = t_uniq)
-coord_list[[1]]
+
 
 # clustering
 group_list <- lapply(adj_list,
@@ -37,13 +39,36 @@ group_list <- lapply(adj_list,
            hclust_fit <- hclust(dis_mat)
            return(cutree(hclust_fit, k = 3))
          })
-# group color
-graph_t <- graph_list[[1]]
-V(graph_t)
 
-color_t <- group_list[[1]]
-color_t
+# graph
+library(magick)
 
-coord_t <- coord_list[[1]]
-names(color_t)
-V(graph_t)$color <- color_t[V(graph_t)$name]
+spearman_list <- list()
+for(input_tid in seq_along(t_uniq)){
+  
+  graph_t <- graph_list[[input_tid]]
+  group_t <- group_list[[input_tid]]
+  coord_t <- coord_list[[input_tid]]
+  
+  V(graph_t)$color <- group_t[V(graph_t)$name]
+  
+  
+  # plot
+  # incProgress(0.5, detail = "Plotting")
+  picname <- paste0("images/spearman_week", t_uniq[input_tid], ".jpeg")
+  jpeg(filename = picname, height = 600, width = 600)
+  plot(graph_t,
+       layout = as.matrix(coord_t),
+       vertex.frame.color=ifelse(is.na(V(graph_t)$color), "grey", NA),
+       vertex.label.cex=1,
+       vertex.size = 20, 
+       vertex.color = V(graph_t)$color, 
+       margin = 0, main = paste0("Week ", t_uniq[input_tid], ", Spearman"))
+  dev.off()
+  spearman_list[[input_tid]] <- image_read(picname)
+}
+
+spearman_animation <- image_animate(image_join(spearman_list), delay = 500)
+
+# Save to file
+image_write(spearman_animation, path = "images/spearman_animation.gif")

@@ -13,6 +13,8 @@ library(arsenal)
 library(htmltools)
 theme_set(theme_minimal())
 
+set.seed(730)
+
 
 #### Helper functions #### 
 
@@ -314,7 +316,7 @@ server <- function(input, output) {
                          select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
     col_id <- colnames(cormat)[!is.na(diag(cormat))] 
     cormat <- cormat[col_id, col_id]
-    heatmap(cormat)
+    heatmap(cormat, distfun = function(mat){as.dist(1-abs(mat))}, margins = c(10, 10), keep.dendro = FALSE)
   }, height = 600, width = "auto")
    
   
