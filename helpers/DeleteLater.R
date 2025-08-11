@@ -1,6 +1,6 @@
 #### small subset for speed concern ####
 
-df <- read.csv("data/AppData2.csv")
+df <- read.csv("data/AppSleepData.csv")
 colnames(df)
 head(df)
 
@@ -15,35 +15,20 @@ write.csv(sub_df, file = "data/AppDataSmall.csv", row.names = F)
 df %>% select(!c("time", "id"))
 
 #### Load data ####
-df <- read.csv("data/AppDataSmall.csv")
+# df <- read.csv("data/AppDataSmall.csv")
+df <- read.csv("data/AppSleepData.csv")
 set.seed(730)
+head(df)
 
 #### Tab 2 ####
-tbrk <- unique(df$time)
-df_sum <- df %>% select(id, time, FSH_N) %>%
-  rename(var="FSH_N") %>% 
-  group_by(time) %>%
-  mutate(med=median(var, na.rm = T)) %>% 
-  mutate(miss = ifelse(is.na(var), "Missing", "Present"),
-         Nmiss = sum(is.na(var)), 
-         Pctmiss = sum(is.na(var))/length(var)) 
 
-df_sum %>% select(time, miss, Nmiss, Pctmiss) %>% 
-  distinct(.) %>%
-  mutate(lab = paste0(Nmiss, " (", round(100*Pctmiss, 2), "%)")) %>%
-  ggplot()+
-  geom_col(aes(x=time, y = 50))+
-  geom_col(aes(x=time, y=Nmiss), col = "red", fill="red")
+GetAdjMat(data= df() %>% select(!c("id", "time")) %>% rename(time = time_id), 
+          cor_method = "pearson")
 
-df_sum %>% ggplot()+
-  geom_line(aes(x=time, y=med), alpha=0.5, linetype = "dashed")+
-  geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.5, fill = "black", alpha=0.5)+
-  geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
-  scale_x_continuous(breaks = df_xlab$time, name = "time",
-                     sec.axis = sec_axis(~., name = "Missing", breaks = df_xlab$time, label =df_xlab$Nmiss))+
-  theme(axis.text.x.top = element_text(angle=45))
-  
-cat("aaaaa", "bbbbb", "ccccc", sep = "\n")
+df %>% select(!c("id", "time")) %>% rename(time = time_id) %>% group_by(time) %>%
+  group_map(~{cor(.x, method = "pearson", use = "pairwise.complete.obs")})
+
+
 
 # only use time points where all variables are measured
 head(df)

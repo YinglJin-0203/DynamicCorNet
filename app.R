@@ -41,6 +41,8 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                          accept = c(".csv")),
                # specify subject ID and time
                uiOutput("time_var"),
+               # uiOutput("bin_yn"),
+               # uiOutput("bin_width"),
                uiOutput("id_var")
              ),
                
@@ -59,7 +61,9 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            # side bar 1
            sidebarLayout(
              sidebarPanel(
-             uiOutput("varnames1")),
+             uiOutput("varnames1"),
+             uiOutput("time_type") # how to approach time
+             ),
 
            # main panel
            mainPanel(# summary for selected variable
@@ -132,6 +136,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
 #### Server ####
 
 server <- function(input, output) {
+  options(shiny.maxRequestSize=10*1024^2)
   # tab 1
   ## data upload
   df <- reactive({
@@ -168,39 +173,63 @@ server <- function(input, output) {
     selectInput("select_var1", label = "Variables", choices = colnames(df()), 
                        selected = colnames(df())[5])
   })
+  # type of time
+  output$time_type <- renderUI({
+    req(df())
+    selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete")
+  })
   
   ## summary of single variables
   output$sum_tb <- renderPlot({
     req(df(), input$select_var1, input$time_var, input$id_var)
-    df_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
-      rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
-      group_by(time) %>%
-      mutate(med=median(var, na.rm = T)) %>% 
-      mutate(Nmiss = sum(is.na(var)), 
-             Pctmiss = sum(is.na(var))/length(var))
-    xlab <- df_sum %>% select(time, Nmiss, Pctmiss) %>% distinct(.) %>%
-      mutate(Nmiss = paste0(Nmiss, " (", round(100*Pctmiss, 2), "%)"))
-    # summary plot
-    df_sum %>% 
-      ggplot()+
-      geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.5, fill = "grey")+
-      geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
-      geom_line(aes(x=time, y=med))+
-      scale_x_continuous(breaks = xlab$time, name = input$time_var,
-                         sec.axis = sec_axis(~., name = "N (pct) of missing", breaks = xlab$time, label=xlab$Nmiss))+
-      theme(axis.text.x.top = element_text(angle=45))+
-      labs(x=input$time_var, y=input$select_var1, title = "Temporal trend")
+    if(input$time_type=="Discrete"){
+      df_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
+        rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
+        group_by(time) %>%
+        mutate(med=median(var, na.rm = T)) %>% 
+        mutate(Nmiss = sum(is.na(var)), 
+               Pctmiss = sum(is.na(var))/length(var))
+      xlab <- df_sum %>% select(time, Nmiss, Pctmiss) %>% distinct(.) %>%
+        mutate(Nmiss = paste0(Nmiss, " (", round(100*Pctmiss, 2), "%)"))
+      # summary plot
+      plot_sum <- df_sum %>% 
+        ggplot()+
+        geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.5, fill = "grey")+
+        geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
+        geom_line(aes(x=time, y=med))+
+        scale_x_continuous(breaks = xlab$time, name = input$time_var,
+                           sec.axis = sec_axis(~., name = "N (pct) of missing", breaks = xlab$time, label=xlab$Nmiss))+
+        theme(axis.text.x.top = element_text(angle=45))+
+        labs(x=input$time_var, y=input$select_var1, title = "Temporal trend")
+    }
+    else{
+      plot_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
+        rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
+        ggplot()+
+        geom_line(aes(x=time, y=var, group=id), alpha = 0.5, linewidth = 0.5)+
+        geom_smooth(aes(x=time, y=var), method = gam, formula = y~s(x))
+    }
+    
+    plot_sum
   })
   
   
   # tab 3
   ## time axis
   output$time_bar <- renderUI({
-    req(df(), input$time_var)
+    req(df(), input$time_var, input$time_type)
     # time bar: by the original time 
-    tvec <- sort(unique(df()[, input$time_var]))
-    sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
-                    grid = TRUE)
+    if(input$time_type=="Discrete"){
+      tvec <- sort(unique(df()[, input$time_var]))
+      time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
+                      grid = TRUE)
+    }
+    else{
+      trange <- range(df()[ ,input$time_var], na.rm=T)
+      time_bar <- sliderInput("time_bar", label = input$time_var, min=trange[1], max=trange[2], value=trange[1],
+                              ticks=FALSE)
+    }
+    time_bar
   }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
   
   output$varnames2 <- renderUI({
