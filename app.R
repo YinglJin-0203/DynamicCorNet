@@ -29,28 +29,45 @@ source(here("helpers/SplinesMDS.R"))
 # UI includes the following elements
 # visualization threshold of correlation
 ui <- navbarPage(title = "Temporal network visualization of multidimensional data",
-
-  # tab 1: data summary table
-  tabPanel(title = "Data summary", 
+  
+  # tab 1: data upload and prespecifications
+  tabPanel(title = "Data upload and preview",
+           
+           sidebarLayout(
+             # side bar: upload
+             sidebarPanel(
+               # upload file
+               fileInput(inputId = "df_path", label = "Upload data",
+                         accept = c(".csv")),
+               # specify subject ID and time
+               uiOutput("time_var"),
+               uiOutput("id_var")
+             ),
+               
+             
+             # main panel: data preview
+             mainPanel(h3('Data preview'),
+                       dataTableOutput("show_df"))
+    
+           )
+           ),
+  
+  # tab 2: data summary table
+  tabPanel(title = "Data summary",
            # side bar 1
            sidebarLayout(
              sidebarPanel(
-             # upload file
-             fileInput(inputId = "df_path", label = "Upload data",
-                       accept = c(".csv")),
              uiOutput("varnames1")),
-           
+
            # main panel
-           mainPanel(h3('Data overview'),
-                     dataTableOutput("show_df"),
-                     # also add summary for selected variable
+           mainPanel(# summary for selected variable
                      h3('Single variable summary'),
-                     dataTableOutput("sum_tb")
-                     # plotOutput("miss_plot")
+                     plotOutput("sum_tb"),
+                     plotOutput("miss_plot")
                      )
   )),
   
-  # tab 2: network and subnetwork plots
+  # tab 3: network and subnetwork plots
   tabPanel(title = "Dynamic network",
            sidebarLayout(
              # side bar
@@ -81,7 +98,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              mainPanel(plotOutput("netp", width = "100%", height = "600px"))
              )),
   
-  # tab 3: pairwise correlation over time
+  # tab 4: pairwise correlation over time
   tabPanel(title = "Pairwise correlation overtime",
            sidebarLayout(
              # side bar
@@ -97,7 +114,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                
            ),
   
-  # tab 4: correlation heatmap at one time slice
+  # tab 5: correlation heatmap at one time slice
   tabPanel(title = "Correlation structure at static time points",
            sidebarLayout(
              # side bar
@@ -114,16 +131,26 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
 
 server <- function(input, output) {
   # tab 1
-  ## data preview
+  ## data upload
   df <- reactive({
     req(input$df_path)
     read.csv(input$df_path$datapath)
   })
-  
+  ## data preview  
   output$show_df <- renderDataTable({df()},
     options = list(scrollX = T, fixedHeader=T)
   )
+  ## specifying time and ID
+  output$time_var <- renderUI({
+    req(df())
+    selectInput("time_var", label = "Specify time", choices = colnames(df()))
+  })
+  output$id_var <- renderUI({
+    req(df())
+    selectInput("id_var", label = "Specify participant ID", choices = colnames(df()))
+  })
   
+  # tab 2
   ## variable list
   output$varnames1 <- renderUI({
     req(df())
@@ -131,55 +158,44 @@ server <- function(input, output) {
                        selected = colnames(df())[5])
   })
   
-  ## summary of variables (across all time)
-  
-  output$sum_tb <- renderDataTable({
-    req(df(), input$select_var1)
-    df_sum <- df()[, c("time", input$select_var1)]
-    # summary table
-    tb_sum <- df_sum %>% 
+  ## summary of single variables
+  output$sum_tb <- renderPlot({
+    req(df(), input$select_var1, input$time_var, input$id_var)
+    df_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
+      rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
       group_by(time) %>%
-      summarise(Min  = min(.data[[input$select_var1]], na.rm = TRUE),
-                Mean = mean(.data[[input$select_var1]], na.rm = TRUE),
-                Median = median(.data[[input$select_var1]], na.rm = TRUE),
-                Max  = max(.data[[input$select_var1]], na.rm = TRUE),
-                SD   = sd(.data[[input$select_var1]], na.rm = TRUE),
-                Nmiss = sum(is.na(.data[[input$select_var1]]) | is.infinite(.data[[input$select_var1]])),
-                N = length(.data[[input$select_var1]]), 
-                .groups = "drop") %>%
-      mutate(Npct = 100*Nmiss/N) %>%
-      mutate(Nmiss = paste0(Nmiss, " (", round(Npct, 2), "%)")) %>%
-      select(-N, -Npct) %>%
-      mutate_at(vars(-time, -Nmiss), round, 2)
-    # caption
-    cap_text <- paste0("Variable: ", input$select_var1)
-    datatable(tb_sum, 
-              caption=tags$caption(style = 'font-weight: bold; font-size: 15px; color: #2C3E50;',
-                                   cap_text),
-              options = list(dom="t",
-                             columnDefs = list(
-                               list(targets = 0, className = 'dt-left'),   # First column
-                               list(targets = 1:(ncol(tb_sum) - 1), className = 'dt-center')  # All others
-                             ))
-              )
-    
+      mutate(med=median(var, na.rm = T)) %>% 
+      mutate(Nmiss = sum(is.na(var)), 
+             Pctmiss = sum(is.na(var))/length(var))
+    xlab <- df_sum %>% select(time, Nmiss, Pctmiss) %>% distinct(.) %>%
+      mutate(Nmiss = paste0(Nmiss, " (", round(100*Pctmiss, 2), "%)"))
+    # summary plot
+    df_sum %>% 
+      ggplot()+
+      geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.5, fill = "grey")+
+      geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
+      geom_line(aes(x=time, y=med))+
+      scale_x_continuous(breaks = xlab$time, name = input$time_var,
+                         sec.axis = sec_axis(~., name = "N (pct) of missing", breaks = xlab$time, label=xlab$Nmiss))+
+      theme(axis.text.x.top = element_text(angle=45))+
+      labs(x=input$time_var, y=input$select_var1, title = "Temporal trend")
   })
-
   
-  # tab 2
+  
+  # tab 3
   ## time axis
   output$time_bar <- renderUI({
-    req(df())
+    req(df(), input$time_var)
     # time bar: by the original time 
-    tvec <- sort(unique(df()$time))
-    sliderTextInput("time_bar", "Time", choices = tvec, selected = tvec[1],
+    tvec <- sort(unique(df()[, input$time_var]))
+    sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
                     grid = TRUE)
   }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
   
   output$varnames2 <- renderUI({
-    req(df())
+    req(df(), input$time_var, input$id_var)
     checkboxGroupInput("select_var2", label = "Variables", 
-                       choices = colnames(subset(df(), select = -c(id, time))))
+                       choices = colnames(df() %>% select(!c(input$time_var, input$id_var))))
   })
 
   # calculate adjacency matrix at each time point
@@ -188,12 +204,13 @@ server <- function(input, output) {
   adj_mat <- reactive({
     req(df())
     if(is.null(confirmed())){
-      GetAdjMat(data=subset(df(), select = -c(id)), 
+      GetAdjMat(data= df() %>% select(!c(input$id_var)) %>% rename(time = input$time_var), 
                 cor_method = input$cor_type,
                 mds_type = input$mds_type)
     }
     else{
-      GetAdjMat(data=df()[, c("time", confirmed())], cor_method = input$cor_type,
+      GetAdjMat(data=df()[, c(input$time_var, confirmed())] %>% rename(time = input$time_var), 
+                cor_method = input$cor_type,
                 mds_type = input$mds_type)
     }
   })
@@ -207,7 +224,7 @@ server <- function(input, output) {
   # calculate coordinates
   coord_list <- reactive({
     req(adj_mat(), df())
-    t_uniq <- sort(unique(df()$time)) # original time scale
+    t_uniq <- sort(unique(df()[, input$time_var])) # original time scale
     t_id <- seq_along(t_uniq) # time index
     
     if(input$mds_type=="Splines"){
@@ -241,7 +258,7 @@ server <- function(input, output) {
         {
           req(input$time_bar, df(), graph_list(), group_list(), coord_list())
           # find the location index
-          tvec <- sort(unique(df()$time))
+          tvec <- sort(unique(df()[, input$time_var]))
           input_tid <- which(tvec==input$time_bar)
           
           # graph at this time point
@@ -270,7 +287,7 @@ server <- function(input, output) {
     )
     }, height = 600, width = "auto")
   
-  # tab3
+  # tab4
   ## variable list
   output$varnames3 <- renderUI({
     req(df())
