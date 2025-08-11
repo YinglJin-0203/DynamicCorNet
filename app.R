@@ -47,7 +47,9 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              
              # main panel: data preview
              mainPanel(h3('Data preview'),
-                       dataTableOutput("show_df"))
+                       dataTableOutput("show_df"),
+                       br(), 
+                       htmlOutput("size_info"))
     
            )
            ),
@@ -140,6 +142,15 @@ server <- function(input, output) {
   output$show_df <- renderDataTable({df()},
     options = list(scrollX = T, fixedHeader=T)
   )
+  output$size_info <- renderPrint({
+    req(df(), input$time_var, input$id_var)
+    Nsize <- length(unique(df()[, input$id_var]))
+    Nfreq <- mean(table(df()[, input$id_var]))
+    Trange <- range(df()[, input$time_var])
+    cat(paste0("Number of participants: ", round(Nsize, 0), "<br>"))
+    cat(paste0("Average number of observations per participant: ", round(Nfreq, 2), "<br>"))
+    cat(paste0("Range of time: ", round(Trange[1], 2), " - ", round(Trange[2], 2), "<br>"))
+    })
   ## specifying time and ID
   output$time_var <- renderUI({
     req(df())
@@ -287,7 +298,7 @@ server <- function(input, output) {
     )
     }, height = 600, width = "auto")
   
-  # tab4
+  # tab 4
   ## variable list
   output$varnames3 <- renderUI({
     req(df())
@@ -297,16 +308,17 @@ server <- function(input, output) {
   
   ## plot
   output$trendp <- renderPlot({
-    req(df(), input$select_var3)
-    df_pair <- df()[, c("id", "time", input$select_var3)]
+    req(df(), input$select_var3, input$time_var, input$id_var)
+    df_pair <- df()[, c(input$time_var, input$id_var, input$select_var3)] %>%
+      rename(time=input$time_var, id = input$id_var)
     # individual trend
     p1 <- df_pair %>%
       pivot_longer(input$select_var3) %>%
       ggplot(aes(x=time, y=value, group=time))+
       geom_boxplot()+geom_jitter(size=0.5)+
       facet_wrap(~name, ncol=1)+
-      labs(x="Time", y=" ")+
-      scale_x_continuous(breaks = unique(df()$time))
+      labs(x=input$time_var, y=" ")+
+      scale_x_continuous(breaks = unique(df_pair$time))
     # correlation trend
     p2 <- df_pair %>% group_by(time) %>%
       group_modify(~{data.frame(cor = cor(.x[, input$select_var3], method = input$cor_type,
@@ -314,22 +326,23 @@ server <- function(input, output) {
       ungroup() %>% ggplot(aes(x=time, y=cor))+
       geom_point()+
       geom_line()+
-      labs(title = "Empirical correlation", x = "Time", y = " ")+
-      scale_x_continuous(breaks = 1: unique(df()$time))
+      labs(title = "Empirical correlation", x = input$time_var, y = " ")+
+      scale_x_continuous(breaks = 1: unique(df_pair$time))
    pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
    pall
-  })
+  },height = 600, width = "auto")
   
   # tab 4
   output$time_bar4 <- renderUI({
-    req(df())
+    req(df(), input$time_var, input$id_var)
     # time bar
-    tvec <- sort(unique((df()$time)))
+    tvec <- sort(unique((df()[ ,input$time_var])))
     sliderTextInput("time_bar4", "Time", choices = tvec, selected = tvec[1],
                     grid = TRUE)
   })
   output$heatmap <- renderPlot({
-    cormat <- cor(subset(df() %>% filter(time==input$time_bar4), 
+    cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
+                           filter(time==input$time_bar4), 
                          select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
     col_id <- colnames(cormat)[!is.na(diag(cormat))] 
     cormat <- cormat[col_id, col_id]

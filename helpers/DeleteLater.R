@@ -43,7 +43,7 @@ df_sum %>% ggplot()+
                      sec.axis = sec_axis(~., name = "Missing", breaks = df_xlab$time, label =df_xlab$Nmiss))+
   theme(axis.text.x.top = element_text(angle=45))
   
-  
+cat("aaaaa", "bbbbb", "ccccc", sep = "\n")
 
 # only use time points where all variables are measured
 head(df)
