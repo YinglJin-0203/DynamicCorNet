@@ -1,21 +1,79 @@
 #### small subset for speed concern ####
 
-df <- read.csv("data/AppSleepData.csv")
+df <- read.csv("data/AppData.csv")
 colnames(df)
 head(df)
 
 rand_id <- sample(unique(df$id), 20)
 
-sub_df <- df %>% filter(id %in% rand_id) %>% 
+df <- df %>% # filter(id %in% rand_id) %>%
   select(id, time, ends_with("_A"), ends_with("Z"), ends_with("_N"), starts_with("Tot")) %>%
   select(-RBudBead_A, -LBudBead_A, -WT_A) %>%
   rename(Participant = id, Week = time)
-write.csv(sub_df, file = "data/AppDataSmall.csv", row.names = F)
+write.csv(df, file = "data/AppData.csv", row.names = F)
 
 df %>% select(!c("time", "id"))
 
+#### Missing ####
+df_sub <- df %>%
+  select(id, time, ends_with("_A"), ends_with("Z"), ends_with("_N"), starts_with("Tot")) %>%
+  select(-RBudBead_A, -LBudBead_A, -WT_A) %>%
+  rename(Participant = id, Week = time)
+
+N <- length(unique(df$id))
+week <- sort(unique(df$time)) 
+  
+pct_miss <- df_sub %>% 
+  group_by(Week) %>%
+  group_map(~{
+    nmiss <- sapply(.x, function(x){sum(is.na(x))})
+    as_vector(nmiss)/N
+  }) 
+
+pct_miss <- bind_rows(pct_miss) %>% select(-Participant)
+
+library(paletteer)
+miss_plot <- data.frame(week, pct_miss) %>% 
+  pivot_longer(-week) %>%
+  mutate(name=factor(name, levels = colnames(df_sub)[3:19])) %>%
+  ggplot()+
+  geom_tile(aes(x=week, y=name, fill=value))+
+    scale_fill_paletteer_c("pals::coolwarm")+
+  scale_x_continuous(breaks = week)+
+  labs(x="Week", y="", fill = "Proportion of missing")
+ggsave("images/IFED_miss.jpeg", plot = miss_plot, width = 6, height = 3)
+
+#### Complete pair #####
+P <- ncol(df)-2
+pnames <- colnames(df)[3:(P+2)]
+miss_pair_pct <- matrix(NA, P, P)
+
+df_t10 <- df %>% filter(Week==t_uniq[10]) %>% select(-Participant, -Week)
+N <- nrow(df_t10)
+
+for(i in 1:(P-1)){
+  for(j in (i+1):P){
+    
+    complete_pair <- !is.na(df_t10[, i]) & !is.na(df_t10[, j])
+    miss_pair_pct[i, j] <- miss_pair_pct[j,i] <- sum(complete_pair)
+
+  }
+}
+
+colnames(miss_pair_pct) <- rownames(miss_pair_pct) <- pnames
+data.frame(miss_pair_pct) %>%
+  rownames_to_column("var1") %>%
+  pivot_longer(-var1) %>%
+  mutate(value_plot = ifelse(value <= 2, 1, 0)) %>%
+  ggplot()+
+  geom_tile(aes(x=var1, y=name, fill=value_plot), show.legend = F)+
+  scale_fill_viridis_c(na.value = "white")+
+  labs(x="", y="", title = "<=2 complete pairs at week 20", fill = " ")+
+  theme(axis.text.x = element_text(angle=45))
+ggsave("images/IFED_comp_pair.jpeg", width = 6, height = 6)
+
 #### Load data ####
-# df <- read.csv("data/AppDataSmall.csv")
+df <- read.csv("data/AppDataSmall.csv")
 df <- read.csv("data/AppSleepData.csv")
 set.seed(730)
 head(df)

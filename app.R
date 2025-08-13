@@ -68,8 +68,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            # main panel
            mainPanel(# summary for selected variable
                      h3('Single variable summary'),
-                     plotOutput("sum_tb"),
-                     plotOutput("miss_plot")
+                     plotOutput("sum_tb")
                      )
   )),
   
@@ -101,7 +100,9 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              ),
              
              # main panel
-             mainPanel(plotOutput("netp", width = "100%", height = "600px"))
+             mainPanel(plotOutput("netp", width = "100%", height = "600px")
+                       # htmlOutput("mesg")
+                       )
              )),
   
   # tab 4: pairwise correlation over time
@@ -213,7 +214,6 @@ server <- function(input, output) {
     plot_sum
   })
   
-  
   # tab 3
   ## time axis
   output$time_bar <- renderUI({
@@ -282,8 +282,12 @@ server <- function(input, output) {
    lapply(adj_mat(),
           function(x){
             dis_mat <- 1-x
+            # remove fully unmeasured variable
             var_id <- which(!is.na(diag(dis_mat)))
             dis_mat <- dis_mat[var_id, var_id]
+            # remove pairs of variables whose dissimilarity cannot be computed
+            # because there is <2 complete pairs
+            dis_mat <- dis_mat[complete.cases(dis_mat), complete.cases(dis_mat)]
             dis_mat <- as.dist(dis_mat)
             hclust_fit <- hclust(dis_mat)
             return(cutree(hclust_fit, k = input$nclust))
@@ -326,6 +330,22 @@ server <- function(input, output) {
     incProgress(1)}
     )
     }, height = 600, width = "auto")
+  
+  ## messages
+  # output$mesg <- ({
+  #   req(adj_mat(), input$time_bar)
+  #   adj_t <- adj_mat()[[input$time_bar]]
+  #   
+  #   # fully missing variables
+  #   full_mis_var <- which(is.na(diag(adj_t)))
+  #   
+  #   # partiallly missing 
+  #   adj_t <- adj_t[-full_mis_var, -full_mis_var]
+  #   adj_t_long <- data.frame(adj_t) %>%
+  #     rownames_to_column() %>%
+  #     pivot_longer(!rowname) 
+  # })
+  
   
   # tab 4
   ## variable list
