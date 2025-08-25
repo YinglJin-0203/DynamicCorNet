@@ -1,7 +1,28 @@
+
+rm(list = ls())
+
 #### small subset for speed concern ####
 
-df <- read.csv("data/AppData.csv")
+df <- read.csv("data/AppDataSmall.csv")
 colnames(df)
+
+df %>% select(Participant, Week, Testosterone_N) %>% 
+  filter(Participant==520102)
+
+df %>% 
+  select(Participant, Week, TotVol_Uterus, TotVol_Thy) %>% 
+  group_by(Week) %>%
+  group_modify(~{data.frame(cor = cor(.x[, c("TotVol_Uterus", "TotVol_Thy")], 
+                                      method = "pearson",
+                                      use = "pairwise.complete.obs")[1, 2])})  %>%
+  ungroup() %>% 
+  filter(complete.cases(.)) %>%
+  ggplot()+
+  geom_point(aes(x=Week, y=cor), na.rm = T)+
+  geom_line(aes(x=Week, y=cor), na.rm = T)#+
+  labs(title = "Empirical correlation", x = input$time_var, y = " ")+
+  scale_x_continuous(breaks = t_uniq)
+
 head(df)
 
 rand_id <- sample(unique(df$id), 20)
@@ -46,30 +67,39 @@ ggsave("images/IFED_miss.jpeg", plot = miss_plot, width = 6, height = 3)
 #### Complete pair #####
 P <- ncol(df)-2
 pnames <- colnames(df)[3:(P+2)]
+# container
 miss_pair_pct <- matrix(NA, P, P)
+colnames(miss_pair_pct) <- rownames(miss_pair_pct) <- pnames
+View(miss_pair_pct)
 
+t_uniq <- sort(unique(df$Week))
+t_uniq[10]
 df_t10 <- df %>% filter(Week==t_uniq[10]) %>% select(-Participant, -Week)
 N <- nrow(df_t10)
 
-for(i in 1:(P-1)){
-  for(j in (i+1):P){
+for(i in seq_along(pnames)){
+  for(j in seq_along(pnames)){
     
-    complete_pair <- !is.na(df_t10[, i]) & !is.na(df_t10[, j])
-    miss_pair_pct[i, j] <- miss_pair_pct[j,i] <- sum(complete_pair)
+    complete_pair <- (!is.na(df_t10[, pnames[i]])) & (!is.na(df_t10[, pnames[j]]))
+    miss_pair_pct[pnames[i], pnames[j]] <- sum(complete_pair)
 
   }
 }
 
-colnames(miss_pair_pct) <- rownames(miss_pair_pct) <- pnames
+t_uniq[10]
+
 data.frame(miss_pair_pct) %>%
   rownames_to_column("var1") %>%
-  pivot_longer(-var1) %>%
-  mutate(value_plot = ifelse(value <= 2, 1, 0)) %>%
+  pivot_longer(-var1, names_to = "var2") %>% #filter(var1 == "BudBead_A") %>% View()
+  mutate_at(c("var1", "var2"), factor, levels = pnames) %>% 
+  mutate(pct=value/N, 
+         flag = ifelse(value<=2, "8", NA)) %>%
   ggplot()+
-  geom_tile(aes(x=var1, y=name, fill=value_plot), show.legend = F)+
-  scale_fill_viridis_c(na.value = "white")+
-  labs(x="", y="", title = "<=2 complete pairs at week 20", fill = " ")+
-  theme(axis.text.x = element_text(angle=45))
+  geom_tile(aes(x=var1, y=var2, fill=pct))+
+  # geom_point(aes(x=var1, y=var2, shape=flag))+
+  scale_fill_paletteer_c("pals::coolwarm", direction = -1)+
+  labs(x="", y="", title = "Proportion of complete pairs at week 28", fill = " ")+
+  theme(axis.text.x = element_text(angle=45, vjust = 0.6))
 ggsave("images/IFED_comp_pair.jpeg", width = 6, height = 6)
 
 #### Load data ####

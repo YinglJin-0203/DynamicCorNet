@@ -1,10 +1,6 @@
 # This script writes functions for splines MDS
 
 
-library(smacof)
-library(splines2)
-
-
 #### Key scalars ####
 # N <- length(unique(df_sim$id)) # sample size
 # # time 
@@ -14,61 +10,59 @@ library(splines2)
 
 #### Stress function ####
 
-# xi_vec: flattened coefficient vector with length of P*K*2
-# lambda: tuning parameters
-# K: spline bases df
-# init_coord: P by 2 matirx of initial coordinates 
-#             (inital offset so that the points don't all start with zero)
+# t: time point
+# xi1, xi2: P by K matrix
+# dissim_list: time-stratified dissimilarity matrix
+# P: number of variables
+# K: DF of spline basis
+# init_coord: initialization of layout. P by 2 matrix
+# lambda: penalization parameter
 
-stress_SplMDS <- function(xi_vec, dissim_list, P, K=20, tvec=tvec, lambda=1, init_coord){
-  
-  # distance on lower dimension
-  xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
-  xi2 = matrix(xi_vec[(P*K+1): (P*K*2)], nrow = P)
-  
-  # basis functions matrix, T by K
-  # Xmat <- bs(tid, df = K)
-  # basic functions and second derivative
-  Xmat <- bSpline(tvec, df = K, degree = 3, derivs = 0)
-  Xmat2dev <- bSpline(tvec, df = K, degree = 3, derivs = 2)
+SplMDS_stress_t <- function(t, xi1, xi2, dissim_list, P, K, init_coord, lambda, Xmat, Xmat2dev){
   
   # coordinates, P by T
   # center around initial coordinates
-  c1 <- init_coord[,1] + xi1 %*% t(Xmat)
-  c2 <- init_coord[,2] + xi2 %*% t(Xmat)
+  c1 <- init_coord[,1] + xi1 %*% Xmat[t, ]
+  c2 <- init_coord[,2] + xi2 %*% Xmat[t, ]
   
   # pariwise euclidean distance
-  tid <- seq_along(tvec)
-  coord_list <- lapply(tid, function(t){cbind(c1[, t], c2[, t])})
-  dist_list <- lapply(coord_list, dist, diag=T, upper=T)
-  dist_list <- lapply(dist_list, as.matrix)
+  dist_t <-as.matrix(dist(cbind(c1,c2), diag = T, upper = T))
+  dist_t <- dist_t[lower.tri(dist_t)]
   
   # Kruskal stress
-  stress <- mapply(function(diss, dist){
-    # high-d dissimilarity
-    diss = diss[lower.tri(diss)]
-    # low-d distance
-    dist = dist[lower.tri(dist)]
-    stress_t = sqrt(sum((diss-dist)^2, na.rm = T)/sum(diss^2, na.rm = T))
-    return(stress_t)}, 
-    dissim_list, dist_list)
-  stress <- sum(stress[!is.infinite(stress)], na.rm=T)
-  
-  # if(any(is.infinite(stress))){
-  #   warning(paste("Variables showed perfect similarity at t =", which(is.infinite(stress))))
-  # }
+  diss_t <- dissim_list[[t]]
+  diss_t <- diss_t[lower.tri(diss_t)]
+  stress_t = sqrt(sum((diss_t-dist_t)^2)/sum(diss_t^2))
   
   # penalization
-  penal_c1 <- sapply(1:P, function(x){t(xi1[x, ]) %*% t(Xmat2dev) %*% Xmat2dev %*% xi1[x, ]})
-  penal_c2 <- sapply(1:P, function(x){t(xi2[x, ]) %*% t(Xmat2dev) %*% Xmat2dev %*% xi2[x, ]})
-  penal <- lambda*(sum(penal_c1)+sum(penal_c2))
+  penal_c1 <- sum((xi1 %*% Xmat2dev[t, ])^2)
+  penal_c2 <- sum((xi2 %*% Xmat2dev[t, ])^2)
+  penal_t <- lambda*(penal_c1+penal_c2)
   
-  loss = stress+penal
+  loss = stress_t+penal_t
   
   return(loss)
 }
 
-# stress_SplMDS(dis_try, rnorm(P*K*2), P, K, tid, 10, init_coord)
+#### Overall stress ####
+# xi_vec: 1D vector with length 2*P*K
+# t_vec: all unique time points
+
+stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P, K, init_coord, lambda, Xmat, Xmat2dev){
+  xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
+  xi2 = matrix(xi_vec[(P*K+1): (P*K*2)], nrow = P)
+  
+  stress <- sapply(tid_vec, SplMDS_stress_t, 
+                   xi1=xi1, xi2=xi2, dissim_list = dissim_list, 
+                   P = P, K = K,
+                   init_coord=init_coord,
+                   lambda = lambda,
+                   Xmat = Xmat, 
+                   Xmat2dev = Xmat2dev)
+  stress <- sum(stress, na.rm = T)
+  
+  return(stress)
+}
 
 #### Splines MDS ####
 
@@ -94,20 +88,24 @@ SplinesMDS <- function(adj_mat, lambda, K, P, tvec){
   init_coord <- smacofSym(init_dis, ndim=2, init = "random")
   init_coord <- init_coord$conf
   
+  # spline basis 
+  Xmat <- bSpline(tvec, df = K, degree = 3, derivs = 0)
+  Xmat2dev <- bSpline(tvec, df = K, degree = 3, derivs = 2)
+  
   # Optimize with regard to 
   final_xi_vec <- optim(
     par = rnorm(P*K*2), 
     fn = stress_SplMDS,
     dissim_list = dis_mat,
-    P = P, K = K, tvec = tvec, lambda = lambda, init_coord = init_coord,
-    method = "BFGS", control = list(maxit=500))
+    P = P, K = K, tid_vec = tid, lambda = lambda, init_coord = init_coord,
+    method = "BFGS", control = list(maxit=500),
+    Xmat = Xmat, Xmat2dev = Xmat2dev)
   
   # calculate coordinates
   xi1 <- matrix(final_xi_vec$par[1: (P*K)], nrow = P)
   xi2 <- matrix(final_xi_vec$par[(P*K+1): (P*K*2)], nrow = P)
   
   # Xmat <- bs(tid, df = 20)
-  Xmat <- bSpline(tvec, df = K, degree = 3, derivs = 0)
   c1 <- init_coord[,1] + xi1 %*% t(Xmat)
   c2 <- init_coord[,2] + xi2 %*% t(Xmat)
   
@@ -116,9 +114,3 @@ SplinesMDS <- function(adj_mat, lambda, K, P, tvec){
   
   return(coords)
 }
-
-# SplinesMDS(adj_try, 10, 30, 32, 1:12)
-
-
-
-

@@ -11,6 +11,8 @@ library(tidyverse)
 library(gridExtra)
 library(arsenal)
 library(htmltools)
+library(smacof)
+library(splines2)
 theme_set(theme_minimal())
 
 set.seed(730)
@@ -80,7 +82,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                # visualization type
                selectInput("mds_type", label = "Method of visualization",
                            choices = list("Splines", "Dynamic"),
-                           selected = "Splines"),
+                           selected = "Dynamic"),
                # correlation type
                selectInput("cor_type", label="Type of correlation",
                            choices = list("pearson", "spearman")),
@@ -360,6 +362,7 @@ server <- function(input, output) {
     req(df(), input$select_var3, input$time_var, input$id_var)
     df_pair <- df()[, c(input$time_var, input$id_var, input$select_var3)] %>%
       rename(time=input$time_var, id = input$id_var)
+    t_uniq <- unique(df_pair$time)
     # individual trend
     p1 <- df_pair %>%
       pivot_longer(input$select_var3) %>%
@@ -367,16 +370,16 @@ server <- function(input, output) {
       geom_boxplot()+geom_jitter(size=0.5)+
       facet_wrap(~name, ncol=1)+
       labs(x=input$time_var, y=" ")+
-      scale_x_continuous(breaks = unique(df_pair$time))
+      scale_x_continuous(breaks = t_uniq)
     # correlation trend
     p2 <- df_pair %>% group_by(time) %>%
       group_modify(~{data.frame(cor = cor(.x[, input$select_var3], method = input$cor_type,
                                           use = "pairwise.complete.obs")[1, 2])})  %>%
-      ungroup() %>% ggplot(aes(x=time, y=cor))+
-      geom_point()+
-      geom_line()+
+      ungroup() %>% filter(complete.cases(.)) %>% ggplot()+
+      geom_point(aes(x=time, y=cor))+
+      geom_line(aes(x=time, y=cor))+
       labs(title = "Empirical correlation", x = input$time_var, y = " ")+
-      scale_x_continuous(breaks = 1: unique(df_pair$time))
+      scale_x_continuous(breaks = t_uniq)
    pall <- grid.arrange(p1, p2, ncol = 1, heights = c(2, 1))
    pall
   },height = 600, width = "auto")
