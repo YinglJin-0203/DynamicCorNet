@@ -15,7 +15,7 @@ library(smacof)
 library(splines2)
 theme_set(theme_minimal())
 
-set.seed(730)
+set.seed(825)
 
 
 #### Helper functions #### 
@@ -87,7 +87,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                selectInput("cor_type", label="Type of correlation",
                            choices = list("pearson", "spearman")),
                # choose correlation threshold
-               sliderInput(inputId = "thres_cor", label = "Visualization threshold", min=0, max=1, value=0, step=0.01,
+               sliderInput(inputId = "thres_cor", label = "Visualization threshold", min=0, max=1, value=1, step=0.01,
                            ticks=FALSE),
                # time bar
                uiOutput("time_bar"),
