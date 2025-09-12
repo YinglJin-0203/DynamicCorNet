@@ -1,11 +1,14 @@
 
 rm(list = ls())
+library(tidyverse)
 
 #### small subset for speed concern ####
 
 df <- read.csv("data/AppDataSmall.csv")
-colnames(df)
+data_demo <- df %>% select(Participant, Week, HC_A, RL_A, AGD_)
 
+xlist <- future({list(1:5)})
+then(xlist, function(x)x[[1]])
 library(ggalluvial)
 library(tidyverse)
 
@@ -34,6 +37,10 @@ group_list <-
            hclust_fit <- hclust(dis_mat)
            return(cutree(hclust_fit, k = 3))
          })
+group_list
+group_c <- brewer.pal(3, "Accent")[group_list[[12]]]
+names(group_c) <- names(group_list[[12]])
+
 t_uniq <- sort(unique(df$Week))
 df_flow <- bind_rows(group_list, .id = "time") %>% 
   mutate(time=t_uniq) %>%
@@ -56,6 +63,20 @@ df_flow %>%
   geom_stratum(aes(x=time, stratum = value, fill=value, alluvium=name))+
   labs(x="Time", y = " ", fill = "Group")
 ggsave("images/group2.jpeg", height = 5, width = 8)
-                                            
 
+
+library(ggplot2)
+df <- data.frame(
+  x = rep(1:3, each = 3),
+  y = rep(1:3, 3),
+  group = rep(c("A","B","C"), 3)
+)
+
+lapply(df, class)
+
+ggplot(df) +
+  geom_point(aes(x=x, y=y, fill = group, color = group)) #+   # both fill & color map to group
+  #guides(fill = guide_legend("Group"), color = guide_legend("Group"))                                        
+
+unique(paste0("X", c(1:5, 11:15, 6:10)))
                

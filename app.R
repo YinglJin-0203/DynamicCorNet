@@ -13,6 +13,12 @@ library(arsenal)
 library(htmltools)
 library(smacof)
 library(splines2)
+library(RColorBrewer)
+library(ggalluvial)
+library(future)
+library(promises)
+plan(multisession)  #
+
 theme_set(theme_minimal())
 
 set.seed(825)
@@ -107,32 +113,55 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                        )
              )),
   
-  # tab 4: pairwise correlation over time
-  tabPanel(title = "Pairwise correlation overtime",
-           sidebarLayout(
-             # side bar
-             sidebarPanel(uiOutput("varnames3")),
-             
-             # main panel
-             mainPanel(
-               plotOutput("trendp"),
-               tableOutput("sum_tb_temp1"),
-               tableOutput("sum_tb_temp2")
-                 )
-             )
+  # tab 4: group information summary
+  tabPanel(title = "Grouping",
+           verticalLayout(
+             plotOutput("sankey"),
+             plotOutput("tile")
+           )
+           
+  ),
+  
+  # tab 5: Correlation summary
+  tabPanel(title = "Correlation",
+           ## heatmap
+           fluidRow(
+             column(width = 12,
+               sidebarLayout(
+                 # side bar
+                 sidebarPanel(uiOutput("time_bar4")),
+                 
+                 # main panel
+                 mainPanel(
+                   plotOutput("heatmap")
+               )))
+           ),
+           
+           # pairwise
+           fluidRow(
+             sidebarLayout(
+               # side bar
+               sidebarPanel(uiOutput("varnames3")),
                
+               # main panel
+               mainPanel(
+                 plotOutput("trendp"),
+                 tableOutput("sum_tb_temp1"),
+                 tableOutput("sum_tb_temp2")
+             )
+           ))
            ),
   
-  # tab 5: correlation heatmap at one time slice
-  tabPanel(title = "Correlation structure at static time points",
-           sidebarLayout(
-             # side bar
-             sidebarPanel(uiOutput("time_bar4")),
-             
-             # main panel
-             mainPanel(
-               plotOutput("heatmap")
-           )))
+  # tab 6: correlation heatmap at one time slice
+  # tabPanel(title = "Correlation structure at static time points",
+  #          sidebarLayout(
+  #            # side bar
+  #            sidebarPanel(uiOutput("time_bar4")),
+  #            
+  #            # main panel
+  #            mainPanel(
+  #              plotOutput("heatmap")
+  #          )))
 )
   
   
@@ -263,21 +292,6 @@ server <- function(input, output) {
     graph_dyn_net(adj_mat(), cor_th = input$thres_cor)
   })
 
-  # calculate coordinates
-  coord_list <- reactive({
-    req(adj_mat(), df())
-    t_uniq <- sort(unique(df()[, input$time_var])) # original time scale
-    t_id <- seq_along(t_uniq) # time index
-    
-    if(input$mds_type=="Splines"){
-      SplinesMDS(adj_mat(), lambda = 10, K = 20, P = dim(adj_mat()[[1]])[1], 
-                 tvec = t_uniq)
-    }
-    else{
-      DynamicMDS(adj_mat(), 5)
-    }
-  })
-  
   # calculated hierarchical groups
   group_list <- reactive({
     req(adj_mat(), input$nclust)
@@ -295,27 +309,47 @@ server <- function(input, output) {
             return(cutree(hclust_fit, k = input$nclust))
                           })
   })
+  
+  ## calculate coordinates
+  coord_list <- reactive({
+      req(adj_mat(), df())
+      t_uniq <- sort(unique(df()[, input$time_var])) # original time scale
+      t_id <- seq_along(t_uniq) # time index
+      # asynchronous
+      # future({
+        if(input$mds_type=="Splines"){
+          SplinesMDS(adj_mat(), lambda = 10, K = 20, P = dim(adj_mat()[[1]])[1],
+                     tvec = t_uniq)
+        }
+        else{
+          DynamicMDS(adj_mat(), 5)
+        }
+      # })
+  })
 
   # plot
   output$netp <- renderPlot({
-    # plot
-    withProgress(
-       value=0, message = "Processing", detail="This may take a while...",
+   
+      withProgress(
+        value=0, message = "Processing", detail="This may take a while...",
         {
-          req(input$time_bar, df(), graph_list(), group_list(), coord_list())
-          # find the location index
-          tvec <- sort(unique(df()[, input$time_var]))
-          input_tid <- which(tvec==input$time_bar)
+          req(adj_mat(), df(), input$mds_type, input$time_var, graph_list(), group_list(), coord_list())
+          t_uniq <- sort(unique(df()[, input$time_var])) # original time scale
+          t_id <- seq_along(t_uniq) # time index
           
-          # graph at this time point
+          input_tid <- which(t_uniq==input$time_bar)
           graph_t <- graph_list()[[input_tid]]
           group_t <- group_list()[[input_tid]]
           coord_t <- coord_list()[[input_tid]]
           
+          # color 
+          group_c <- brewer.pal(input$nclust, "Accent")[group_t]
+          names(group_c) <- names(group_t)
+          
           if(input$hclust){
-            V(graph_t)$color <- group_t[V(graph_t)$name]
+            V(graph_t)$color <- group_c[V(graph_t)$name]
           }
-
+    
           # plot
           # incProgress(0.5, detail = "Plotting")
           plot(graph_t,
@@ -325,31 +359,53 @@ server <- function(input, output) {
            vertex.size = 20, 
            vertex.color = V(graph_t)$color, 
            margin = 0)
-    
-    cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
-    if(any(cond)){warning(paste("Data showed perfect similarity at time", which(cond)))}
-    
+        
+        cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
+        if(any(cond)){warning(paste("Data showed perfect similarity at time", which(cond)))}
+        
     incProgress(1)}
     )
     }, height = 600, width = "auto")
   
-  ## messages
-  # output$mesg <- ({
-  #   req(adj_mat(), input$time_bar)
-  #   adj_t <- adj_mat()[[input$time_bar]]
-  #   
-  #   # fully missing variables
-  #   full_mis_var <- which(is.na(diag(adj_t)))
-  #   
-  #   # partiallly missing 
-  #   adj_t <- adj_t[-full_mis_var, -full_mis_var]
-  #   adj_t_long <- data.frame(adj_t) %>%
-  #     rownames_to_column() %>%
-  #     pivot_longer(!rowname) 
-  # })
-  
-  
   # tab 4
+  ## sankey flow chart
+  output$sankey <- renderPlot({
+    req(group_list(), df(), input$time_var)
+    tvec <- sort(unique((df()[ ,input$time_var])))
+    plot_flow <- bind_rows(group_list(), .id = "time") %>% 
+      mutate(time=tvec) %>%
+      pivot_longer(-time) %>%
+      mutate(value = as.factor(value), time = as.numeric(time)) %>%
+      ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
+      geom_flow()+
+      geom_stratum()+
+      labs(x="Time", y = " ")+
+      guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
+      theme(legend.position = "bottom", axis.text.y = element_blank())+
+      scale_color_brewer(palette = "Accent")+
+      scale_fill_brewer(palette = "Accent")
+    plot_flow
+  }, height = 400, width = "auto")
+  ## tile chart
+  output$tile <- renderPlot({
+    req(group_list(), df(), input$time_var)
+    tvec <- sort(unique((df()[ ,input$time_var])))
+    plot_tile <- bind_rows(group_list(), .id = "time") %>% 
+      mutate(time=tvec) %>%
+      pivot_longer(-time) %>%
+      mutate(value = as.factor(value), time = as.numeric(time)) %>%
+      ggplot(aes(x=time, y=name, fill=value))+
+      geom_tile()+
+      labs(x="Time", y = " ", fill = "Group")+
+      theme(legend.position = "bottom")+
+      scale_fill_brewer(palette = "Accent")+
+      scale_x_continuous(breaks = tvec)
+    plot_tile
+  }, height = 400, width = "auto")
+  
+  
+  
+  # tab 5
   ## variable list
   output$varnames3 <- renderUI({
     req(df())
@@ -384,7 +440,7 @@ server <- function(input, output) {
    pall
   },height = 600, width = "auto")
   
-  # tab 4
+  # tab 6
   output$time_bar4 <- renderUI({
     req(df(), input$time_var, input$id_var)
     # time bar
@@ -398,12 +454,9 @@ server <- function(input, output) {
                          select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
     col_id <- colnames(cormat)[!is.na(diag(cormat))] 
     cormat <- cormat[col_id, col_id]
-    heatmap(cormat, distfun = function(mat){as.dist(1-abs(mat))}, margins = c(10, 10), keep.dendro = FALSE)
-  }, height = 600, width = "auto")
-   
-  
-
-}
+    heatmap(cormat, distfun = function(mat){as.dist(1-abs(mat))}, margins = c(10, 10))
+  }, height = 500, width = "auto")
+  }
 
 
 
