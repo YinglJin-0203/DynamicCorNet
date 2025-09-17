@@ -5,6 +5,8 @@
 library(shiny)
 library(shinyWidgets)
 library(bslib)
+library(shinyBS)
+# library(bsicons)
 library(here)
 library(DT)
 library(tidyverse)
@@ -65,18 +67,20 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            ),
   
   # tab 2: data summary table
-  tabPanel(title = "Data summary",
+  tabPanel(title = "Variable distribution",
            # side bar 1
            sidebarLayout(
              sidebarPanel(
              uiOutput("varnames1"),
-             uiOutput("time_type") # how to approach time
+             # time type with tooltip
+             selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete")
              ),
 
            # main panel
            mainPanel(# summary for selected variable
                      h3('Single variable summary'),
-                     plotOutput("sum_tb")
+                     plotOutput("sum_tb"),
+                     textOutput("sum_tb_note")
                      )
   )),
   
@@ -93,7 +97,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                selectInput("cor_type", label="Type of correlation",
                            choices = list("pearson", "spearman")),
                # choose correlation threshold
-               sliderInput(inputId = "thres_cor", label = "Visualization threshold", min=0, max=1, value=1, step=0.01,
+               sliderInput(inputId = "thres_cor", label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
                            ticks=FALSE),
                # time bar
                uiOutput("time_bar"),
@@ -114,7 +118,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              )),
   
   # tab 4: group information summary
-  tabPanel(title = "Grouping",
+  tabPanel(title = "Variable groups",
            verticalLayout(
              plotOutput("sankey"),
              plotOutput("tile")
@@ -122,46 +126,22 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            
   ),
   
-  # tab 5: Correlation summary
+  # tab 5: Correlation
   tabPanel(title = "Correlation",
-           ## heatmap
-           fluidRow(
-             column(width = 12,
-               sidebarLayout(
-                 # side bar
-                 sidebarPanel(uiOutput("time_bar4")),
+           # side bar
+           sidebarPanel(uiOutput("time_bar4"),
+                        uiOutput("varnames3")),
                  
-                 # main panel
-                 mainPanel(
-                   plotOutput("heatmap")
-               )))
+           # main panel
+           mainPanel(
+             plotOutput("heatmap"),
+             plotOutput("trendp"),
+             tableOutput("sum_tb_temp1"),
+             tableOutput("sum_tb_temp2")
+             )
            ),
            
-           # pairwise
-           fluidRow(
-             sidebarLayout(
-               # side bar
-               sidebarPanel(uiOutput("varnames3")),
-               
-               # main panel
-               mainPanel(
-                 plotOutput("trendp"),
-                 tableOutput("sum_tb_temp1"),
-                 tableOutput("sum_tb_temp2")
-             )
-           ))
-           ),
-  
-  # tab 6: correlation heatmap at one time slice
-  # tabPanel(title = "Correlation structure at static time points",
-  #          sidebarLayout(
-  #            # side bar
-  #            sidebarPanel(uiOutput("time_bar4")),
-  #            
-  #            # main panel
-  #            mainPanel(
-  #              plotOutput("heatmap")
-  #          )))
+  # tab 6: Overall summary
 )
   
   
@@ -169,7 +149,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
 
 server <- function(input, output) {
   options(shiny.maxRequestSize=10*1024^2)
-  # tab 1
+  # tab 1: data upload and preview
   ## data upload
   df <- reactive({
     req(input$df_path)
@@ -198,17 +178,12 @@ server <- function(input, output) {
     selectInput("id_var", label = "Specify participant ID", choices = colnames(df()))
   })
   
-  # tab 2
+  # tab 2: distribution of variables
   ## variable list
   output$varnames1 <- renderUI({
     req(df())
     selectInput("select_var1", label = "Variables", choices = colnames(df()), 
                        selected = colnames(df())[5])
-  })
-  # type of time
-  output$time_type <- renderUI({
-    req(df())
-    selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete")
   })
   
   ## summary of single variables
@@ -243,6 +218,11 @@ server <- function(input, output) {
     }
     
     plot_sum
+  })
+  
+  # message regarding plot
+  observe({
+    
   })
   
   # tab 3
