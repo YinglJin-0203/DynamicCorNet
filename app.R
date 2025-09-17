@@ -80,7 +80,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            mainPanel(# summary for selected variable
                      h3('Single variable summary'),
                      plotOutput("sum_tb"),
-                     textOutput("sum_tb_note")
+                     htmlOutput("sum_tb_note")
                      )
   )),
   
@@ -112,7 +112,8 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              ),
              
              # main panel
-             mainPanel(plotOutput("netp", width = "100%", height = "600px")
+             mainPanel(h3("Temporal network of correlation"),
+                       plotOutput("netp", width = "100%", height = "600px")
                        # htmlOutput("mesg")
                        )
              )),
@@ -120,8 +121,17 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
   # tab 4: group information summary
   tabPanel(title = "Variable groups",
            verticalLayout(
+             h3("Temporal group structure of variables"),
              plotOutput("sankey"),
-             plotOutput("tile")
+             htmlOutput("sankey_note"),
+             tags$span('Need more information?', style = "font-size: 12px; font-style: italic;"),
+             tags$a(href = "https://corybrunson.github.io/ggalluvial/", 
+                    target = "_blank",  # open in new tab
+                    bs_icon("info-circle", class = "text-primary", style = "cursor: pointer;"),
+                    title = "Go to documentation"),
+             br(), br(),
+             plotOutput("tile"),
+             htmlOutput("tile_note")
            )
            
   ),
@@ -139,8 +149,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              tableOutput("sum_tb_temp1"),
              tableOutput("sum_tb_temp2")
              )
-           ),
-           
+           )
   # tab 6: Overall summary
 )
   
@@ -207,23 +216,41 @@ server <- function(input, output) {
         scale_x_continuous(breaks = xlab$time, name = input$time_var,
                            sec.axis = sec_axis(~., name = "N (pct) of missing", breaks = xlab$time, label=xlab$Nmiss))+
         theme(axis.text.x.top = element_text(angle=45))+
-        labs(x=input$time_var, y=input$select_var1, title = "Temporal trend")
+        labs(x=input$time_var, y=input$select_var1, 
+             title = paste0("Distribution and temporal trend of ", input$select_var1))
     }
     else{
       plot_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
         rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
         ggplot()+
         geom_line(aes(x=time, y=var, group=id), alpha = 0.5, linewidth = 0.5)+
-        geom_smooth(aes(x=time, y=var), method = gam, formula = y~s(x))
+        geom_smooth(aes(x=time, y=var), method = gam, formula = y~s(x))+
+        labs(x=input$time_var, y = input$select_var1,
+             title = paste0("Distribution and temporal trend of ", input$select_var1))
     }
     
     plot_sum
   })
   
-  # message regarding plot
-  observe({
-    
+  ## notes for the boxplot
+  output$sum_tb_note <- renderText({
+    if(input$time_type=="Discrete"){
+      meg <- HTML("
+              <li>Each measurement is considered as a occurence at a discrete time point.</li>
+              <li>Distribution of measurements from different subjects at the same time point is represented with boxplot. </li>
+              <li>Trend over time is represented by change of median.</li>
+                  ")
+    } 
+    else{
+      meg = HTML("
+             <li>Measurements is considered noisy realizations of an underlying smooth process over time.</li>
+             <li>Each line represents the trajectory from one subject.</li>
+             <li>The blue line is a smoothed trend over all subjects and measurement points.</li>
+                 ")
+    }
+    print(meg)
   })
+  
   
   # tab 3
   ## time axis
@@ -359,13 +386,22 @@ server <- function(input, output) {
       ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
       geom_flow()+
       geom_stratum()+
-      labs(x="Time", y = " ")+
+      labs(x="Time", y = "Group", title = "Group flow chart")+
       guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
       theme(legend.position = "bottom", axis.text.y = element_blank())+
       scale_color_brewer(palette = "Accent")+
-      scale_fill_brewer(palette = "Accent")
+      scale_fill_brewer(palette = "Accent")+
+      scale_x_continuous(breaks = tvec)
     plot_flow
-  }, height = 400, width = "auto")
+  }, height = 400, width = 700)
+  ## note 
+  output$sankey_note <- renderText({
+    HTML("
+        <li>This plot visualizes the change of group structure of variables over time.</li>
+        <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
+        <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
+         ") # https://corybrunson.github.io/ggalluvial/
+  })
   ## tile chart
   output$tile <- renderPlot({
     req(group_list(), df(), input$time_var)
@@ -376,12 +412,20 @@ server <- function(input, output) {
       mutate(value = as.factor(value), time = as.numeric(time)) %>%
       ggplot(aes(x=time, y=name, fill=value))+
       geom_tile()+
-      labs(x="Time", y = " ", fill = "Group")+
+      labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
       theme(legend.position = "bottom")+
       scale_fill_brewer(palette = "Accent")+
       scale_x_continuous(breaks = tvec)
     plot_tile
-  }, height = 400, width = "auto")
+  }, height = 400, width = 700)
+  ## tile chart note
+  output$tile_note <- renderText({
+    HTML("
+    <li>This plot visualizes the change of group assignment for each variable.</li>
+    <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
+    <li>Change of color indicates change of group assignments.</li>
+         ")
+  })
   
   
   
