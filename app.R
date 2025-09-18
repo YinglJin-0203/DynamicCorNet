@@ -6,7 +6,7 @@ library(shiny)
 library(shinyWidgets)
 library(bslib)
 library(shinyBS)
-# library(bsicons)
+library(bsicons)
 library(here)
 library(DT)
 library(tidyverse)
@@ -17,9 +17,7 @@ library(smacof)
 library(splines2)
 library(RColorBrewer)
 library(ggalluvial)
-library(future)
-library(promises)
-plan(multisession)  #
+library(ggdendro)
 
 theme_set(theme_minimal())
 
@@ -137,14 +135,17 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
   ),
   
   # tab 5: Correlation
-  tabPanel(title = "Correlation",
+  tabPanel(title = "Correlation structure",
            # side bar
            sidebarPanel(uiOutput("time_bar4"),
                         uiOutput("varnames3")),
                  
            # main panel
            mainPanel(
-             plotOutput("heatmap"),
+             h3("Time-specific correlation structure"),
+                         plotOutput("heatmap"),
+                         plotOutput("dendrogram"),
+             br(), br(),
              plotOutput("trendp"),
              tableOutput("sum_tb_temp1"),
              tableOutput("sum_tb_temp2")
@@ -393,7 +394,7 @@ server <- function(input, output) {
       scale_fill_brewer(palette = "Accent")+
       scale_x_continuous(breaks = tvec)
     plot_flow
-  }, height = 400, width = 700)
+  }, height = 300, width = 400)
   ## note 
   output$sankey_note <- renderText({
     HTML("
@@ -417,7 +418,7 @@ server <- function(input, output) {
       scale_fill_brewer(palette = "Accent")+
       scale_x_continuous(breaks = tvec)
     plot_tile
-  }, height = 400, width = 700)
+  }, height = 300, width = 400)
   ## tile chart note
   output$tile_note <- renderText({
     HTML("
@@ -464,23 +465,33 @@ server <- function(input, output) {
    pall
   },height = 600, width = "auto")
   
-  # tab 6
+  ## time-specific heatmap 
   output$time_bar4 <- renderUI({
     req(df(), input$time_var, input$id_var)
     # time bar
     tvec <- sort(unique((df()[ ,input$time_var])))
-    sliderTextInput("time_bar4", "Time", choices = tvec, selected = tvec[1],
+    sliderTextInput("time_bar4", "Time of heatmap", choices = tvec, selected = tvec[1],
                     grid = TRUE)
   })
   output$heatmap <- renderPlot({
     cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
                            filter(time==input$time_bar4), 
                          select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
-    col_id <- colnames(cormat)[!is.na(diag(cormat))] 
-    cormat <- cormat[col_id, col_id]
-    heatmap(cormat, distfun = function(mat){as.dist(1-abs(mat))}, margins = c(10, 10))
-  }, height = 500, width = "auto")
-  }
+    data.frame(cormat) %>% rownames_to_column("var1") %>%
+      pivot_longer(-var1) %>%
+      ggplot(aes(x=var1, y=name, fill = value))+
+      geom_tile()+
+      scale_fill_continuous_diverging(palette = 'Blue-Red 3')+
+      labs(x="", y="", fill="Correlation", title = "Correlation matrix")
+  }, height = 300, width = 400)
+  output$dendrogram <- renderPlot({
+    req(df(), adj_mat(), input$time_bar4, input$time_var)
+    tvec <- sort(unique((df()[ ,input$time_var])))
+    tid <- which(tvec == input$time_bar4)
+    dandro <- hclust(as.dist(adj_mat()[[tid]]))
+    ggdendrogram(dandro, rotate = T)
+  }, height = 300, width = 400)
+}
 
 
 
