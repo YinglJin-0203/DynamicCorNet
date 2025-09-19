@@ -100,8 +100,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                # time bar
                uiOutput("time_bar"),
                # hierarchical grouping
-               checkboxInput("hclust", label = tags$span("Show groupng results", 
-                                                          style = 'font_weight: bold; font-size: 18px;'), 
+               checkboxInput("hclust", label = "Show groupng results", 
                              value = TRUE),
                numericInput("nclust", label = "Number of groups", value = 3),
                # variable list
@@ -116,41 +115,46 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                        )
              )),
   
-  # tab 4: group information summary
-  tabPanel(title = "Variable groups",
-           verticalLayout(
-             h3("Temporal group structure of variables"),
-             plotOutput("sankey"),
-             htmlOutput("sankey_note"),
-             tags$span('Need more information?', style = "font-size: 12px; font-style: italic;"),
-             tags$a(href = "https://corybrunson.github.io/ggalluvial/", 
-                    target = "_blank",  # open in new tab
-                    bs_icon("info-circle", class = "text-primary", style = "cursor: pointer;"),
-                    title = "Go to documentation"),
-             br(), br(),
-             plotOutput("tile"),
-             htmlOutput("tile_note")
-           )
+  # tab 4: temporal information summary
+  tabPanel(title = "Temporal trends",
            
+           sidebarLayout(
+             sidebarPanel(
+               # correlation matrix
+               uiOutput("time_bar4"),
+               # grouping information 
+               radioButtons("group_plot", label = "Show groups by: ", choices = list("Group" = 1, "Variable" = 2)),
+               tags$span('Need more information?', style = "font-size: 12px; font-style: italic;"),
+               tags$a(href = "https://corybrunson.github.io/ggalluvial/", 
+                      target = "_blank",  # open in new tab
+                      bs_icon("info-circle", class = "text-primary", style = "cursor: pointer;"),
+                      title = "Go to documentation")
+             ),
+             mainPanel(
+               plotOutput("heatmap"),
+               div(plotOutput("group_plot"), style = "margin-bottom:0; margin-top:-1; padding:0"),
+               div(htmlOutput("group_note"), style = "margin-bottom:0; margin-top:-1; padding:0")
+             )
+           )
   ),
   
   # tab 5: Correlation
-  tabPanel(title = "Correlation structure",
-           # side bar
-           sidebarPanel(uiOutput("time_bar4"),
-                        uiOutput("varnames3")),
-                 
-           # main panel
-           mainPanel(
-             h3("Time-specific correlation structure"),
-                         plotOutput("heatmap"),
-                         plotOutput("dendrogram"),
-             br(), br(),
-             plotOutput("trendp"),
-             tableOutput("sum_tb_temp1"),
-             tableOutput("sum_tb_temp2")
-             )
-           )
+  # tabPanel(title = "Correlation structure",
+  #          # side bar
+  #          sidebarPanel(uiOutput("time_bar4"),
+  #                       uiOutput("varnames3")),
+  #                
+  #          # main panel
+  #          mainPanel(
+  #            h3("Time-specific correlation structure"),
+  #                        plotOutput("heatmap"),
+  #                        plotOutput("dendrogram"),
+  #            br(), br(),
+  #            plotOutput("trendp"),
+  #            tableOutput("sum_tb_temp1"),
+  #            tableOutput("sum_tb_temp2")
+  #            )
+  #          )
   # tab 6: Overall summary
 )
   
@@ -375,61 +379,77 @@ server <- function(input, output) {
     )
     }, height = 600, width = "auto")
   
-  # tab 4
+  # tab 4: temporal summary
+  output$time_bar4 <- renderUI({
+    req(df(), input$time_var, input$id_var)
+    # time bar
+    tvec <- sort(unique((df()[ ,input$time_var])))
+    sliderTextInput("time_bar4", "Time of heatmap", choices = tvec, selected = tvec[1],
+                    grid = TRUE)
+  })
+  ## heatmap
+  output$heatmap <- renderPlot({
+    cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
+                           filter(time==input$time_bar4), 
+                         select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
+    data.frame(cormat) %>% rownames_to_column("var1") %>%
+      pivot_longer(-var1) %>%
+      ggplot(aes(x=var1, y=name, fill = value))+
+      geom_tile()+
+      scale_fill_continuous_diverging(palette = 'Blue-Red 3')+
+      theme(legend.position = "bottom")+
+      labs(x="", y="", fill="Correlation", title = "Correlation matrix")
+  }, height = 400, width = 400)
   ## sankey flow chart
-  output$sankey <- renderPlot({
+  output$group_plot <- renderPlot({
     req(group_list(), df(), input$time_var)
     tvec <- sort(unique((df()[ ,input$time_var])))
-    plot_flow <- bind_rows(group_list(), .id = "time") %>% 
-      mutate(time=tvec) %>%
-      pivot_longer(-time) %>%
-      mutate(value = as.factor(value), time = as.numeric(time)) %>%
-      ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
-      geom_flow()+
-      geom_stratum()+
-      labs(x="Time", y = "Group", title = "Group flow chart")+
-      guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
-      theme(legend.position = "bottom", axis.text.y = element_blank())+
-      scale_color_brewer(palette = "Accent")+
-      scale_fill_brewer(palette = "Accent")+
-      scale_x_continuous(breaks = tvec)
-    plot_flow
-  }, height = 300, width = 400)
+    
+    if(input$group_plot == 1){
+        bind_rows(group_list(), .id = "time") %>% 
+          mutate(time=tvec) %>%
+          pivot_longer(-time) %>%
+          mutate(value = as.factor(value), time = as.numeric(time)) %>%
+          ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
+          geom_flow()+
+          geom_stratum()+
+          labs(x="Time", y = "Group", title = "Group flow chart")+
+          guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
+          theme(legend.position = "bottom", axis.text.y = element_blank())+
+          scale_color_brewer(palette = "Accent")+
+          scale_fill_brewer(palette = "Accent")+
+          scale_x_continuous(breaks = tvec)
+    }
+    else{
+      bind_rows(group_list(), .id = "time") %>% 
+        mutate(time=tvec) %>%
+        pivot_longer(-time) %>%
+        mutate(value = as.factor(value), time = as.numeric(time)) %>%
+        ggplot(aes(x=time, y=name, fill=value))+
+        geom_tile()+
+        labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
+        theme(legend.position = "bottom")+
+        scale_fill_brewer(palette = "Accent")+
+        scale_x_continuous(breaks = tvec)
+    }
+  }, height = 400, width = 400)
   ## note 
-  output$sankey_note <- renderText({
-    HTML("
+  output$group_note <- renderText({
+    if(input$group_plot==1){
+      HTML("
         <li>This plot visualizes the change of group structure of variables over time.</li>
         <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
         <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
-         ") # https://corybrunson.github.io/ggalluvial/
-  })
-  ## tile chart
-  output$tile <- renderPlot({
-    req(group_list(), df(), input$time_var)
-    tvec <- sort(unique((df()[ ,input$time_var])))
-    plot_tile <- bind_rows(group_list(), .id = "time") %>% 
-      mutate(time=tvec) %>%
-      pivot_longer(-time) %>%
-      mutate(value = as.factor(value), time = as.numeric(time)) %>%
-      ggplot(aes(x=time, y=name, fill=value))+
-      geom_tile()+
-      labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
-      theme(legend.position = "bottom")+
-      scale_fill_brewer(palette = "Accent")+
-      scale_x_continuous(breaks = tvec)
-    plot_tile
-  }, height = 300, width = 400)
-  ## tile chart note
-  output$tile_note <- renderText({
-    HTML("
-    <li>This plot visualizes the change of group assignment for each variable.</li>
-    <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
-    <li>Change of color indicates change of group assignments.</li>
          ")
+    }
+    else{
+      HTML("
+        <li>This plot visualizes the change of group assignment for each variable.</li>
+        <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
+        <li>Change of color indicates change of group assignments.</li>
+         ")
+    }
   })
-  
-  
-  
   # tab 5
   ## variable list
   output$varnames3 <- renderUI({
@@ -447,11 +467,8 @@ server <- function(input, output) {
     # individual trend
     p1 <- df_pair %>%
       pivot_longer(input$select_var3) %>%
-      ggplot(aes(x=time, y=value, group=time))+
-      geom_boxplot()+geom_jitter(size=0.5)+
-      facet_wrap(~name, ncol=1)+
-      labs(x=input$time_var, y=" ")+
-      scale_x_continuous(breaks = t_uniq)
+      ggplot()+
+      geom_boxplot(aes(x=as.factor(time), y=value, fill=name), position = "dodge2")
     # correlation trend
     p2 <- df_pair %>% group_by(time) %>%
       group_modify(~{data.frame(cor = cor(.x[, input$select_var3], method = input$cor_type,
@@ -466,24 +483,7 @@ server <- function(input, output) {
   },height = 600, width = "auto")
   
   ## time-specific heatmap 
-  output$time_bar4 <- renderUI({
-    req(df(), input$time_var, input$id_var)
-    # time bar
-    tvec <- sort(unique((df()[ ,input$time_var])))
-    sliderTextInput("time_bar4", "Time of heatmap", choices = tvec, selected = tvec[1],
-                    grid = TRUE)
-  })
-  output$heatmap <- renderPlot({
-    cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
-                           filter(time==input$time_bar4), 
-                         select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
-    data.frame(cormat) %>% rownames_to_column("var1") %>%
-      pivot_longer(-var1) %>%
-      ggplot(aes(x=var1, y=name, fill = value))+
-      geom_tile()+
-      scale_fill_continuous_diverging(palette = 'Blue-Red 3')+
-      labs(x="", y="", fill="Correlation", title = "Correlation matrix")
-  }, height = 300, width = 400)
+
   output$dendrogram <- renderPlot({
     req(df(), adj_mat(), input$time_bar4, input$time_var)
     tvec <- sort(unique((df()[ ,input$time_var])))
