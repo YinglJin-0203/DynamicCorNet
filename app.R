@@ -51,6 +51,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                  icon("info-circle"), 
                  em("Correlation measures may be unrealiable when the proportion of missing is large!")
                  ),
+               br(), br(),
                # specify subject ID and time
                uiOutput("time_var"),
                # uiOutput("bin_yn"),
@@ -68,34 +69,55 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            )
            ),
   
-  # tab 2: data summary table
-  tabPanel(title = "Variable distribution",
-           # side bar 1
-           sidebarLayout(
-             sidebarPanel(
-             uiOutput("varnames1"),
-             # time type with tooltip
-             selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete")
-             ),
-
-           # main panel
-           mainPanel(# summary for selected variable
-                     h3('Single variable summary'),
-                     plotOutput("sum_tb"),
-                     h4("Note:"), 
-                     htmlOutput("sum_tb_note")
-                     )
-  )),
+  # tab 2: descriptive
+  tabPanel(title = "Descriptives",
+           tabsetPanel(
+              ## sub-tab 1: single variable distribution
+                tabPanel(title = "Individual",
+                         # side bar 1
+                         sidebarLayout(
+                           sidebarPanel(
+                           uiOutput("varnames1"),
+                           # time type with tooltip
+                           selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete")
+                           ),
+  
+                         # main panel
+                         mainPanel(# summary for selected variable
+                                   h3('Single variable summary'),
+                                   plotOutput("sum_tb"),
+                                   h4("Note:"), 
+                                   htmlOutput("sum_tb_note")
+                                             )
+              )),
+              ## sub-tab 2: pairwise
+              tabPanel(title = "Pairwise",
+                       # side bar
+                       sidebarLayout(
+                        sidebarPanel(uiOutput("varnames2")),
+                       
+                       # main panel
+                         mainPanel(
+                           h3("Emparical correlation for a pair of variables"),
+                           plotOutput("trendp")
+                         ))),
+              ## subtab 3: all variables
+              tabPanel(title = "Overall",
+                         sidebarLayout(
+                           sidebarPanel(uiOutput("time_bar1")),
+                           mainPanel(
+                             h3("Correlation and group structure at each time point"),
+                             plotOutput("heatmap")
+                           )
+                         )
+                       )
+    )),
   
   # tab 3: network and subnetwork plots
-  tabPanel(title = "Dynamic network",
+  tabPanel(title = "Temporal visualization",
            sidebarLayout(
              # side bar
              sidebarPanel(
-               # visualization type
-               selectInput("mds_type", label = "Method of visualization",
-                           choices = list("Splines", "Dynamic"),
-                           selected = "Dynamic"),
                # correlation type
                selectInput("cor_type", label="Type of correlation",
                            choices = list("pearson", "spearman")),
@@ -107,61 +129,25 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                # hierarchical grouping
                checkboxInput("hclust", label = "Show groupng results", 
                              value = TRUE),
-               numericInput("nclust", label = "Number of groups", value = 3),
+               uiOutput("nclust"),
+               uiOutput("group_type"), 
                # variable list
-               uiOutput("varnames2"),
+               uiOutput("varnames3"),
                actionButton("confirm", "Confirm selection")
              ),
              
              # main panel
              mainPanel(h3("Temporal network of correlation"),
-                       plotOutput("netp", width = "100%", height = "600px")
-                       # htmlOutput("mesg")
+                       htmlOutput("mds_type"),
+                       plotOutput("netp", width = "100%", height = "400px"),
+                       div(align = "center", plotOutput("group_plot", width = "80%", height = "300px")),
+                       h4("Note:"),
+                       htmlOutput("group_note")
                        )
              )),
   
-  # tab 4: temporal information summary
-  tabPanel(title = "Temporal trends",
-           
-           sidebarLayout(
-             sidebarPanel(
-               # correlation matrix
-               uiOutput("time_bar4"),
-               radioButtons("cor_plot", label = "Show correlation by: ", choices = list("Heatmap" = 1, "Group dengrogram" = 2)),
-               # grouping information 
-               radioButtons("group_plot", label = "Show groups by: ", choices = list("Group" = 1, "Variable" = 2)),
-               tags$span('Need more information?', style = "font-size: 12px; font-style: italic;"),
-               tags$a(href = "https://corybrunson.github.io/ggalluvial/", 
-                      target = "_blank",  # open in new tab
-                      bs_icon("info-circle", class = "text-primary", style = "cursor: pointer;"),
-                      title = "Go to documentation")
-             ),
-             mainPanel(
-               h3("Correlation and group structure at each time point"),
-               plotOutput("heatmap"),
-               div(plotOutput("group_plot"), style = "margin-bottom:0; margin-top:-1; padding:0"),
-               h4("Note:"),
-               div(htmlOutput("group_note"), style = "margin-bottom:0; margin-top:-1; padding:0")
-             )
-           )
-  ),
-  
-  # tab 5: Overall structure
-  tabPanel(title = "Overall summary"),
-  
-  # tab 6: Pairwise correlation
-  tabPanel(title = "Pairwise correlation",
-           # side bar
-           sidebarPanel(uiOutput("varnames3")),
-
-           # main panel
-           mainPanel(
-             h3("Emparical correlation for a pair of variables"),
-             plotOutput("trendp"),
-             tableOutput("sum_tb_temp1"),
-             tableOutput("sum_tb_temp2")
-             )
-           )
+  # tab 4: Overall structure
+  tabPanel(title = "Integrated visualization")
   
 )
   
@@ -199,8 +185,8 @@ server <- function(input, output) {
     selectInput("id_var", label = "Specify participant ID", choices = colnames(df()))
   })
   
-  # tab 2: distribution of variables
-  ## variable list
+  # tab 2: Descriptives
+  ## subtab 2.1: single variable distribution
   output$varnames1 <- renderUI({
     req(df())
     selectInput("select_var1", label = "Variables", choices = colnames(df()), 
@@ -263,8 +249,69 @@ server <- function(input, output) {
     print(meg)
   })
   
+  ## subtab 2.2: pairwise correlaion
+  output$varnames2 <- renderUI({
+    req(df())
+    checkboxGroupInput("select_var2", label = "Variables", choices = colnames(df()), 
+                       selected = colnames(df())[3:4])
+  })
   
-  # tab 3
+  output$trendp <- renderPlot({
+    req(df(), input$select_var2, input$time_var, input$id_var)
+    validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
+    
+    df_pair <- df()[, c(input$time_var, input$id_var, input$select_var2)] %>%
+      rename(time=input$time_var, id = input$id_var)
+    t_uniq <- unique(df_pair$time)
+
+    p1 <- df_pair %>%
+      pivot_longer(input$select_var2) %>%
+      ggplot(aes(x = time, y=value, fill=name, colour = name, group=interaction(time, name)))+
+      geom_boxplot(position = "dodge2", alpha = 0.7)+
+      geom_jitter(size = 0.5)+
+      scale_fill_brewer(palette = "Set2")+
+      scale_color_brewer(palette = "Set2")+
+      scale_x_continuous(breaks = t_uniq)+
+      labs(title = "Variable distribution", x = input$time_var, y = " ")+
+      theme(legend.position = "bottom", legend.ticks = element_blank())
+    # correlation trend
+    p2 <- df_pair %>% group_by(time) %>%
+      group_modify(~{data.frame(cor = cor(.x[, input$select_var2], method = input$cor_type,
+                                          use = "pairwise.complete.obs")[1, 2])})  %>%
+      ungroup() %>% filter(complete.cases(.)) %>% ggplot()+
+      geom_point(aes(x=time, y=cor))+
+      geom_line(aes(x=time, y=cor))+
+      labs(title = "Empirical correlation", x = input$time_var, y = " ")+
+      scale_x_continuous(breaks = t_uniq)
+    pall <- grid.arrange(p2, p1, ncol = 1, heights = c(1, 1))
+    pall
+  },height = 600, width = "auto")
+  
+  # subtab 2.3: overall correlation heatmap
+  output$time_bar1 <- renderUI({
+    req(df(), input$time_var, input$id_var)
+    # time bar
+    tvec <- sort(unique((df()[ ,input$time_var])))
+    sliderTextInput("time_bar1", "Time of heatmap", choices = tvec, selected = tvec[1],
+                    grid = TRUE)
+  })
+  output$heatmap <- renderPlot({
+    req(df(), input$time_var, input$id_var)
+    ## correlation matrix
+    cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
+                           filter(time==input$time_bar1), 
+                         select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
+    ## heatmap
+    data.frame(cormat) %>% rownames_to_column("var1") %>%
+      pivot_longer(-var1) %>%
+      ggplot(aes(x=var1, y=name, fill = value))+
+      geom_tile()+
+      scale_fill_continuous_diverging(palette = 'Blue-Red 3', mid = 0, breaks = c(-1, 0, 1), limits = c(-1, 1))+
+      theme(legend.position = "bottom")+
+      labs(x="", y="", fill="Correlation", title = "Correlation matrix")
+  })
+  
+  # tab 3: temporal network and group labels
   ## time axis
   output$time_bar <- renderUI({
     req(df(), input$time_var, input$time_type)
@@ -282,28 +329,42 @@ server <- function(input, output) {
     time_bar
   }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
   
-  output$varnames2 <- renderUI({
+  output$varnames3 <- renderUI({
     req(df(), input$time_var, input$id_var)
-    checkboxGroupInput("select_var2", label = "Variables", 
+    checkboxGroupInput("select_var3", label = "Variables", 
                        choices = colnames(df() %>% select(!c(input$time_var, input$id_var))))
+  })
+  
+  ## grouping results
+  output$nclust <- renderUI({
+    req(input$hclust)
+    numericInput("nclust", label = "Number of groups", value = 3)
+  })
+  output$group_type <- renderUI({
+    req(input$hclust)
+    radioButtons("group_plot", label = "Group summary: ", choices = list("By temporal flow" = 1, 
+                                                                         "By variable" = 2,
+                                                                         "Hierarchical tree" = 3))
   })
 
   # calculate adjacency matrix at each time point
   confirmed <- reactiveVal(NULL)
-  observeEvent(input$confirm, {confirmed(input$select_var2)})
+  observeEvent(input$confirm, {confirmed(input$select_var3)})
   adj_mat <- reactive({
-    req(df())
+    req(df(), input$time_type)
+    mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
     if(is.null(confirmed())){
       GetAdjMat(data= df() %>% select(!c(input$id_var)) %>% rename(time = input$time_var), 
                 cor_method = input$cor_type,
-                mds_type = input$mds_type)
+                mds_type = mds_type)
     }
     else{
       GetAdjMat(data=df()[, c(input$time_var, confirmed())] %>% rename(time = input$time_var), 
                 cor_method = input$cor_type,
-                mds_type = input$mds_type)
+                mds_type = mds_type)
     }
   })
+  
 
   # calculate graph
   graph_list <- reactive({
@@ -331,12 +392,13 @@ server <- function(input, output) {
   
   ## calculate coordinates
   coord_list <- reactive({
-      req(adj_mat(), df())
+      req(adj_mat(), df(), input$time_type)
+      mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
       t_uniq <- sort(unique(df()[, input$time_var])) # original time scale
       t_id <- seq_along(t_uniq) # time index
       # asynchronous
       # future({
-        if(input$mds_type=="Splines"){
+        if(mds_type=="Splines"){
           SplinesMDS(adj_mat(), lambda = 10, K = 20, P = dim(adj_mat()[[1]])[1],
                      tvec = t_uniq)
         }
@@ -347,12 +409,18 @@ server <- function(input, output) {
   })
 
   # plot
+  output$mds_type <- renderPrint({
+    req(input$time_type)
+    mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
+    cat(paste0("For ", toupper(input$time_type), " time, ", "network layout is generated by ", mds_type, " Multidimensional Scaling."))
+  })
+    
   output$netp <- renderPlot({
    
       withProgress(
         value=0, message = "Processing", detail="This may take a while...",
         {
-          req(adj_mat(), df(), input$mds_type, input$time_var, graph_list(), group_list(), coord_list(), input$nclust)
+          req(adj_mat(), df(), input$time_var, graph_list(), group_list(), coord_list(), input$nclust)
           t_uniq <- sort(unique(df()[, input$time_var])) # original time scale
           t_id <- seq_along(t_uniq) # time index
           
@@ -386,137 +454,122 @@ server <- function(input, output) {
         
     incProgress(1)}
     )
-    }, height = 600, width = "auto")
-  
-  # tab 4: temporal summary
-  output$time_bar4 <- renderUI({
-    req(df(), input$time_var, input$id_var)
-    # time bar
-    tvec <- sort(unique((df()[ ,input$time_var])))
-    sliderTextInput("time_bar4", "Time of heatmap", choices = tvec, selected = tvec[1],
-                    grid = TRUE)
-  })
-  ## heatmap
-  output$heatmap <- renderPlot({
-    req(df(), input$time_var, input$id_var, group_list())
-    ## correlation matrix
-    cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
-                           filter(time==input$time_bar4), 
-                         select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
-    ## clutering tree
-    tvec <- sort(unique((df()[ ,input$time_var])))
-    tid <- which(tvec==input$time_bar4)
-    hclust_fit <- group_list()[[tid]]
-    
-    if(input$cor_plot==1){
-    # heatmap
-   corplot_t <- data.frame(cormat) %>% rownames_to_column("var1") %>%
-      pivot_longer(-var1) %>%
-      ggplot(aes(x=var1, y=name, fill = value))+
-      geom_tile()+
-      scale_fill_continuous_diverging(palette = 'Blue-Red 3', mid = 0)+
-      theme(legend.position = "bottom")+
-      labs(x="", y="", fill="Correlation", title = "Correlation matrix")
-    }
-    else{
-    # dendrogram
-    corplot_t <- ggdendrogram(hclust_fit, rotate = T, szie = 2)+
-      labs(title = "Variable group structure")
-    }
-    corplot_t
-    }, height = 400, width = 400)
-  ## sankey flow chart
+    })
+    ## group label plot
   output$group_plot <- renderPlot({
-    req(group_list(), df(), input$time_var, input$nclust, input$group_plot)
+    req(group_list(), df(), input$time_var, input$nclust, input$group_plot, input$time_bar)
     tvec <- sort(unique((df()[ ,input$time_var])))
-    
-    group_list <- lapply(group_list(), function(hclust_fit){cutree(hclust_fit, k = input$nclust)})
-    
+    tid <- which(tvec==input$time_bar)
+
+    group_label_list <- lapply(group_list(), function(hclust_fit){cutree(hclust_fit, k = input$nclust)})
+
     if(input$group_plot == 1){
-        bind_rows(group_list, .id = "time") %>% 
+        bind_rows(group_label_list, .id = "time") %>%
           mutate(time=tvec) %>%
           pivot_longer(-time) %>%
           mutate(value = as.factor(value), time = as.numeric(time)) %>%
           ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
           geom_flow()+
           geom_stratum()+
+          geom_vline(xintercept = input$time_bar)+
           labs(x="Time", y = "Group", title = "Group flow chart")+
           guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
           theme(legend.position = "bottom", axis.text.y = element_blank())+
           scale_color_brewer(palette = "Accent")+
           scale_fill_brewer(palette = "Accent")+
           scale_x_continuous(breaks = tvec)
-    }
-    else{
-      bind_rows(group_list, .id = "time") %>% 
+    } else if(input$group_plot == 2){
+      bind_rows(group_label_list, .id = "time") %>%
         mutate(time=tvec) %>%
         pivot_longer(-time) %>%
         mutate(value = as.factor(value), time = as.numeric(time)) %>%
         ggplot(aes(x=time, y=name, fill=value))+
-        geom_tile()+
+        geom_tile(alpha=0.7)+
+        geom_vline(xintercept = input$time_bar)+
         labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
         theme(legend.position = "bottom")+
         scale_fill_brewer(palette = "Accent")+
         scale_x_continuous(breaks = tvec)
+    } else{
+       ggdendrogram(group_list()[[tid]], rotate = T, szie = 2)+
+            labs(title = paste0("Hierarchial group at time ", input$time_bar))
+      
     }
-  }, height = 400, width = 400)
-  ## note 
+  })
+  ## note
   output$group_note <- renderText({
     if(input$group_plot==1){
       HTML("
-        <li>This plot visualizes the change of group structure of variables over time.</li>
+        <li>This plot visualizes the change of group structure of variables over time using an <a href='https://corybrunson.github.io/ggalluvial/' target='_blank'>Alluvial plot</a></li>
         <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
         <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
          ")
-    }
-    else{
+    } else if(input$group_plot==2){
       HTML("
         <li>This plot visualizes the change of group assignment for each variable.</li>
         <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
         <li>Change of color indicates change of group assignments.</li>
          ")
-    }
-  })
+    } else{ 
+      HTML("
+        <li>This plot visualizes the hierachical structure of variables at a specific time.</li>
+         ")}
+    })
+  
+ 
+  ## heatmap
+  # output$heatmap <- renderPlot({
+  #   req(df(), input$time_var, input$id_var, group_list())
+  #   ## correlation matrix
+  #   cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
+  #                          filter(time==input$time_bar4), 
+  #                        select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
+  #   ## clutering tree
+  #   tvec <- sort(unique((df()[ ,input$time_var])))
+  #   tid <- which(tvec==input$time_bar4)
+  #   hclust_fit <- group_list()[[tid]]
+  #   
+  #   if(input$cor_plot==1){
+  #   # heatmap
+  #  corplot_t <- data.frame(cormat) %>% rownames_to_column("var1") %>%
+  #     pivot_longer(-var1) %>%
+  #     ggplot(aes(x=var1, y=name, fill = value))+
+  #     geom_tile()+
+  #     scale_fill_continuous_diverging(palette = 'Blue-Red 3', mid = 0)+
+  #     theme(legend.position = "bottom")+
+  #     labs(x="", y="", fill="Correlation", title = "Correlation matrix")
+  #   }
+  #   else{
+  #   # dendrogram
+  #   corplot_t <- ggdendrogram(hclust_fit, rotate = T, szie = 2)+
+  #     labs(title = "Variable group structure")
+  #   }
+  #   corplot_t
+  #   }, height = 400, width = 400)
+  # ## sankey flow chart
+ 
+  # ## note 
+  # output$group_note <- renderText({
+  #   if(input$group_plot==1){
+  #     HTML("
+  #       <li>This plot visualizes the change of group structure of variables over time.</li>
+  #       <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
+  #       <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
+  #        ")
+  #   }
+  #   else{
+  #     HTML("
+  #       <li>This plot visualizes the change of group assignment for each variable.</li>
+  #       <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
+  #       <li>Change of color indicates change of group assignments.</li>
+  #        ")
+  #   }
+  # })
   # tab 5
   
   
   # tab 6: Pairwise summary
-  ## variable list
-  output$varnames3 <- renderUI({
-    req(df())
-    checkboxGroupInput("select_var3", label = "Variables", choices = colnames(df()), 
-                       selected = colnames(df())[3:4])
-  })
   
-  ## plot
-  output$trendp <- renderPlot({
-    req(df(), input$select_var3, input$time_var, input$id_var)
-    df_pair <- df()[, c(input$time_var, input$id_var, input$select_var3)] %>%
-      rename(time=input$time_var, id = input$id_var)
-    t_uniq <- unique(df_pair$time)
-    # individual trend
-    p1 <- df_pair %>%
-      pivot_longer(input$select_var3) %>%
-      ggplot(aes(x = time, y=value, fill=name, colour = name, group=interaction(time, name)))+
-      geom_boxplot(position = "dodge2", alpha = 0.7)+
-      geom_jitter(size = 0.5)+
-      scale_fill_brewer(palette = "Set2")+
-      scale_color_brewer(palette = "Set2")+
-      scale_x_continuous(breaks = t_uniq)+
-      labs(title = "Variable distribution", x = input$time_var, y = " ", fill = "")+
-      theme(legend.position = "bottom")
-    # correlation trend
-    p2 <- df_pair %>% group_by(time) %>%
-      group_modify(~{data.frame(cor = cor(.x[, input$select_var3], method = input$cor_type,
-                                          use = "pairwise.complete.obs")[1, 2])})  %>%
-      ungroup() %>% filter(complete.cases(.)) %>% ggplot()+
-      geom_point(aes(x=time, y=cor))+
-      geom_line(aes(x=time, y=cor))+
-      labs(title = "Empirical correlation", x = input$time_var, y = " ")+
-      scale_x_continuous(breaks = t_uniq)
-   pall <- grid.arrange(p2, p1, ncol = 1, heights = c(1, 1))
-   pall
-  },height = 600, width = "auto")
   
 }
 
