@@ -140,6 +140,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              mainPanel(h3("Temporal network of correlation"),
                        htmlOutput("mds_type"),
                        plotOutput("netp", width = "100%", height = "400px"),
+                       h3("Variable group summary:"),
                        div(align = "center", plotOutput("group_plot", width = "80%", height = "300px")),
                        h4("Note:"),
                        htmlOutput("group_note")
