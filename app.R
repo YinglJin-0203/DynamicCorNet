@@ -31,6 +31,7 @@ source(here("helpers/AdjacencyMat.R"))
 source(here("helpers/DynNet.R"))
 source(here("helpers/DynamicMDS.R"))
 source(here("helpers/SplinesMDS.R"))
+source(here("helpers/IntegralDynMDS.R"))
 
 #### User interface ####
 
@@ -148,7 +149,18 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              )),
   
   # tab 4: Overall structure
-  tabPanel(title = "Integrated visualization")
+  tabPanel(title = "Integrated visualization",
+           sidebarLayout(
+             sidebarPanel(
+               radioButtons("int_plot_type", label = "Integrated visualization", 
+                            choiceNames = c("Network", "Group"),
+                            choiceValues = 1:2, 
+                            selected = 1)
+             ),
+             mainPanel(
+               plotOutput("int_plot")
+             )
+           ))
   
 )
   
@@ -492,7 +504,7 @@ server <- function(input, output) {
         scale_fill_brewer(palette = "Accent")+
         scale_x_continuous(breaks = tvec)
     } else{
-       ggdendrogram(group_list()[[tid]], rotate = T, szie = 2)+
+       ggdendrogram(group_list()[[tid]], rotate = T, size = 2)+
             labs(title = paste0("Hierarchial group at time ", input$time_bar))
       
     }
@@ -518,59 +530,38 @@ server <- function(input, output) {
     })
   
  
-  ## heatmap
-  # output$heatmap <- renderPlot({
-  #   req(df(), input$time_var, input$id_var, group_list())
-  #   ## correlation matrix
-  #   cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
-  #                          filter(time==input$time_bar4), 
-  #                        select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
-  #   ## clutering tree
-  #   tvec <- sort(unique((df()[ ,input$time_var])))
-  #   tid <- which(tvec==input$time_bar4)
-  #   hclust_fit <- group_list()[[tid]]
-  #   
-  #   if(input$cor_plot==1){
-  #   # heatmap
-  #  corplot_t <- data.frame(cormat) %>% rownames_to_column("var1") %>%
-  #     pivot_longer(-var1) %>%
-  #     ggplot(aes(x=var1, y=name, fill = value))+
-  #     geom_tile()+
-  #     scale_fill_continuous_diverging(palette = 'Blue-Red 3', mid = 0)+
-  #     theme(legend.position = "bottom")+
-  #     labs(x="", y="", fill="Correlation", title = "Correlation matrix")
-  #   }
-  #   else{
-  #   # dendrogram
-  #   corplot_t <- ggdendrogram(hclust_fit, rotate = T, szie = 2)+
-  #     labs(title = "Variable group structure")
-  #   }
-  #   corplot_t
-  #   }, height = 400, width = 400)
-  # ## sankey flow chart
- 
-  # ## note 
-  # output$group_note <- renderText({
-  #   if(input$group_plot==1){
-  #     HTML("
-  #       <li>This plot visualizes the change of group structure of variables over time.</li>
-  #       <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
-  #       <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
-  #        ")
-  #   }
-  #   else{
-  #     HTML("
-  #       <li>This plot visualizes the change of group assignment for each variable.</li>
-  #       <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
-  #       <li>Change of color indicates change of group assignments.</li>
-  #        ")
-  #   }
-  # })
-  # tab 5
-  
-  
-  # tab 6: Pairwise summary
-  
+  # tab 4: integrated correlation and grouping results
+  int_plot_list <- reactive({
+    req(adj_mat())
+    # average adjacency matrix
+    AveAdj <- apply(simplify2array(adj_mat()), c(1, 2), mean, na.rm = T)
+    AveDis <- 1-AveAdj
+    # coords
+    coords <- mds(AveAdj)$conf
+    # clustering 
+    clust <- hclust(dist(AveDis))
+    # plot
+    int_net <- graph_from_adjacency_matrix(AveAdj, 
+                                           mode = "undirected", weighted = T, diag=F)
+    list(clust = clust, int_net = int_net, coords = coords)
+  })
+  output$int_plot <- renderPlot({
+    req(int_plot_list(), input$nclust)
+    
+    if(input$int_plot_type == 1){
+      clust_group <- cutree(int_plot_list()$clust, k = input$nclust)
+      # color
+      clust_color <- brewer.pal(input$nclust, "Accent")[clust_group]
+    
+      plot(int_plot_list()$int_net, layout=int_plot_list()$coords, 
+           vertex.color = clust_color, edge.color = NA,
+           vertex.frame.color=clust_color,
+           vertex.label.cex=1,
+           vertex.size = 20)
+    } else {
+      ggdendrogram(int_plot_list()$clust, rotate = F, size = 2)+
+        labs(title = "")
+    }})
   
 }
 

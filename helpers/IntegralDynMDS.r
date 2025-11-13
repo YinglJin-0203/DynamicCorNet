@@ -3,12 +3,12 @@
 # which doesn't change across time
 
 
-library(smacof)
-library(mgcv)
-library(tidyverse)
-
-try <- rnorm(4)
-matrix(try, 2, 2)
+# library(smacof)
+# library(mgcv)
+# library(tidyverse)
+# 
+# try <- rnorm(4)
+# matrix(try, 2, 2)
 
 #### Estimate by projection ###
 
