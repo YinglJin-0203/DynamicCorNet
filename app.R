@@ -31,7 +31,6 @@ source(here("helpers/AdjacencyMat.R"))
 source(here("helpers/DynNet.R"))
 source(here("helpers/DynamicMDS.R"))
 source(here("helpers/SplinesMDS.R"))
-source(here("helpers/IntegralDynMDS.R"))
 
 #### User interface ####
 
@@ -107,7 +106,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                          sidebarLayout(
                            sidebarPanel(uiOutput("time_bar1")),
                            mainPanel(
-                             h3("Correlation and group structure at each time point"),
+                             h3("Correlation heatmap"),
                              plotOutput("heatmap")
                            )
                          )
@@ -247,7 +246,7 @@ server <- function(input, output) {
   output$sum_tb_note <- renderText({
     if(input$time_type=="Discrete"){
       meg <- HTML("
-              <li>Each measurement is considered as a occurence at a discrete time point.</li>
+              <li>Each measurement is considered as a occurrence at a discrete time point.</li>
               <li>Distribution of measurements from different subjects at the same time point is represented with boxplot. </li>
               <li>Trend over time is represented by change of median.</li>
                   ")
@@ -296,7 +295,7 @@ server <- function(input, output) {
       geom_line(aes(x=time, y=cor))+
       labs(title = "Empirical correlation", x = input$time_var, y = " ")+
       scale_x_continuous(breaks = t_uniq)
-    pall <- grid.arrange(p2, p1, ncol = 1, heights = c(1, 1))
+    pall <- grid.arrange(p2, p1, ncol = 1, heights = c(0.7, 1))
     pall
   },height = 600, width = "auto")
   
@@ -320,7 +319,8 @@ server <- function(input, output) {
       ggplot(aes(x=var1, y=name, fill = value))+
       geom_tile()+
       scale_fill_continuous_diverging(palette = 'Blue-Red 3', mid = 0, breaks = c(-1, 0, 1), limits = c(-1, 1))+
-      theme(legend.position = "bottom")+
+      theme(legend.position = "bottom",
+            axis.text.x = element_text(angle=90))+
       labs(x="", y="", fill="Correlation", title = "Correlation matrix")
   })
   
