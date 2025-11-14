@@ -318,11 +318,13 @@ server <- function(input, output) {
       pivot_longer(-var1) %>%
       ggplot(aes(x=var1, y=name, fill = value))+
       geom_tile()+
-      scale_fill_continuous_diverging(palette = 'Blue-Red 3', mid = 0, breaks = c(-1, 0, 1), limits = c(-1, 1))+
+      scale_fill_continuous_diverging(palette = 'Blue-Red 3', mid = 0, breaks = c(-1, 0, 1), limits = c(-1, 1),
+                                      rev = TRUE)+
       theme(legend.position = "bottom",
-            axis.text.x = element_text(angle=90))+
+            axis.text.x = element_text(angle=90),
+            aspect.ratio = 1)+
       labs(x="", y="", fill="Correlation", title = "Correlation matrix")
-  })
+  }, height = 500, width = 500)
   
   # tab 3: temporal network and group labels
   ## time axis
@@ -535,6 +537,7 @@ server <- function(input, output) {
     req(adj_mat())
     # average adjacency matrix
     AveAdj <- apply(simplify2array(adj_mat()), c(1, 2), mean, na.rm = T)
+    AveAdj 
     AveDis <- 1-AveAdj
     # coords
     coords <- mds(AveAdj)$conf
