@@ -94,7 +94,10 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
               tabPanel(title = "Pairwise",
                        # side bar
                        sidebarLayout(
-                        sidebarPanel(uiOutput("varnames2")),
+                        sidebarPanel( # correlation type
+                          selectInput("cor_type", label="Type of correlation",
+                                      choices = list("pearson", "spearman")),
+                          uiOutput("varnames2")),
                        
                        # main panel
                          mainPanel(
@@ -118,9 +121,6 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            sidebarLayout(
              # side bar
              sidebarPanel(
-               # correlation type
-               selectInput("cor_type", label="Type of correlation",
-                           choices = list("pearson", "spearman")),
                # choose correlation threshold
                sliderInput(inputId = "thres_cor", label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
                            ticks=FALSE),
@@ -151,13 +151,20 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
   tabPanel(title = "Integrated visualization",
            sidebarLayout(
              sidebarPanel(
-               radioButtons("int_plot_type", label = "Integrated visualization", 
-                            choiceNames = c("Network", "Group"),
-                            choiceValues = 1:2, 
-                            selected = 1)
-             ),
+               sliderInput(inputId = "thres_cor2", 
+                           label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
+                           ticks=FALSE),
+               # hierarchical grouping
+               checkboxInput("hclust2", label = "Show groupng results", 
+                             value = TRUE),
+               uiOutput("nclust2"),
+               # variable list
+               uiOutput("varnames4"),
+               actionButton("confirm2", "Confirm selection")
+              ),
              mainPanel(
-               plotOutput("int_plot")
+               plotOutput("int_net"),
+               plotOutput("int_tree")
              )
            ))
   
@@ -533,38 +540,106 @@ server <- function(input, output) {
   
  
   # tab 4: integrated correlation and grouping results
-  int_plot_list <- reactive({
-    req(adj_mat())
-    # average adjacency matrix
-    AveAdj <- apply(simplify2array(adj_mat()), c(1, 2), mean, na.rm = T)
-    AveAdj 
-    AveDis <- 1-AveAdj
-    # coords
-    coords <- mds(AveAdj)$conf
-    # clustering 
-    clust <- hclust(dist(AveDis))
-    # plot
-    int_net <- graph_from_adjacency_matrix(AveAdj, 
-                                           mode = "undirected", weighted = T, diag=F)
-    list(clust = clust, int_net = int_net, coords = coords)
+  ## sidebar variable list
+  output$varnames4 <- renderUI({
+    req(df(), input$time_var, input$id_var)
+    checkboxGroupInput("select_var4", label = "Variables", 
+                       choices = colnames(df() %>% select(!c(input$time_var, input$id_var))))
   })
-  output$int_plot <- renderPlot({
-    req(int_plot_list(), input$nclust)
+  confirmed2 <- reactiveVal(NULL)
+  observeEvent(input$confirm2, {confirmed2(input$select_var4)})
+  # group label
+  output$nclust2 <- renderUI({
+    req(input$hclust2)
+    numericInput("nclust2", label = "Number of groups", value = 3)
+  })
+  # integral adjacency matrix
+  int_adj_mat <- reactive({
+    req(df(), input$id_var, input$time_var)
+    if(is.null(confirmed2())){
+      int_adj_mat_list <- GetAdjMat(data= df() %>% select(!c(input$id_var)) %>% rename(time = input$time_var),
+                cor_method = input$cor_type,
+                mds_type = "Splines")
+    }
+    else{
+      int_adj_mat_list <- GetAdjMat(data=df()[, c(input$time_var, confirmed2())] %>% rename(time = input$time_var),
+                cor_method = input$cor_type,
+                mds_type = "Splines")
+    }
+    # integrate
+    AveAdj <- apply(simplify2array(int_adj_mat_list), c(1, 2), mean, na.rm = T)
+    AveAdj
+  })
+  # clustering result
+  int_clust <- reactive({
+    AveDis <- 1-int_adj_mat()
+    hclust(dist(AveDis))
+  })
+  # plot
+  output$int_net <- renderPlot({
+    req(int_adj_mat(), int_clust())
     
-    if(input$int_plot_type == 1){
-      clust_group <- cutree(int_plot_list()$clust, k = input$nclust)
-      # color
-      clust_color <- brewer.pal(input$nclust, "Accent")[clust_group]
+    # plot
+    int_adj_mat <- int_adj_mat()[which(int_adj_mat() < input$thres_cor2)] <- 0
+    int_net <- graph_from_adjacency_matrix(int_adj_mat, 
+                                         mode = "undirected", weighted = T, diag=F)
+    E(int_net)$width <- E(int_net)$weight*5
     
-      plot(int_plot_list()$int_net, layout=int_plot_list()$coords, 
-           vertex.color = clust_color, edge.color = NA,
-           vertex.frame.color=clust_color,
+    # node properties
+    V(int_net)$color <- rgb(0.2, 0.4, 0.8, alpha=0.4)
+    coords <- mds(int_adj_mat())$conf
+    
+    if(input$hclust2){
+      clust_group <- cutree(int_clust(), k = input$nclust2)
+      vcolor <- brewer.pal(input$nclust2, "Accent")[clust_group]
+      names(vcolor) <- names(clust_group)
+      V(int_net)$color <- vcolor[V(int_net)$name]
+    }
+    
+    plot(int_net, layout=coords,
+           vertex.color =  V(int_net)$color, edge.color = NA,
+           vertex.frame.color=  V(int_net)$color,
            vertex.label.cex=1,
            vertex.size = 20)
-    } else {
-      ggdendrogram(int_plot_list()$clust, rotate = F, size = 2)+
-        labs(title = "")
-    }})
+  })
+  #   } else {
+  #     ggdendrogram(int_plot_list()$clust, rotate = F, size = 2)+
+  #       labs(title = "")
+  #   }})
+  # int_plot_list <- reactive({
+  #   req(df(), input$id_var, input$time_var, input$cor_type)
+  #   # average adjacency matrix
+  #   int_adj <- GetAdjMat(data= df() %>% select(!c(input$id_var)) %>% rename(time = input$time_var), 
+  #                        cor_method = input$cor_type,
+  #                        mds_type = "Splines")
+  #   AveAdj <- apply(simplify2array(int_adj), c(1, 2), mean, na.rm = T)
+  #   AveDis <- 1-AveAdj
+  #   # coords
+  #   coords <- mds(AveAdj)$conf
+  #   # clustering 
+  #   clust <- hclust(dist(AveDis))
+  #   # plot
+  #   int_net <- graph_from_adjacency_matrix(AveAdj, 
+  #                                          mode = "undirected", weighted = T, diag=F)
+  #   list(clust = clust, int_net = int_net, coords = coords)
+  # })
+  # output$int_plot <- renderPlot({
+  #   req(int_plot_list(), input$nclust)
+  #   
+  #   if(input$int_plot_type == 1){
+  #     clust_group <- cutree(int_plot_list()$clust, k = input$nclust)
+  #     # color
+  #     clust_color <- brewer.pal(input$nclust, "Accent")[clust_group]
+  #   
+  #     plot(int_plot_list()$int_net, layout=int_plot_list()$coords, 
+  #          vertex.color = clust_color, edge.color = NA,
+  #          vertex.frame.color=clust_color,
+  #          vertex.label.cex=1,
+  #          vertex.size = 20)
+  #   } else {
+  #     ggdendrogram(int_plot_list()$clust, rotate = F, size = 2)+
+  #       labs(title = "")
+  #   }})
   
 }
 
