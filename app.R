@@ -163,8 +163,11 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                actionButton("confirm2", "Confirm selection")
               ),
              mainPanel(
+               h3("Integrated network of correlation"),
                plotOutput("int_net"),
-               plotOutput("int_tree")
+               h3("Integrated variable group summary:"),
+               plotOutput("int_tree"),
+               htmlOutput("Note")
              )
            ))
   
@@ -548,7 +551,7 @@ server <- function(input, output) {
   })
   confirmed2 <- reactiveVal(NULL)
   observeEvent(input$confirm2, {confirmed2(input$select_var4)})
-  # group label
+ ## clustering
   output$nclust2 <- renderUI({
     req(input$hclust2)
     numericInput("nclust2", label = "Number of groups", value = 3)
@@ -570,76 +573,53 @@ server <- function(input, output) {
     AveAdj <- apply(simplify2array(int_adj_mat_list), c(1, 2), mean, na.rm = T)
     AveAdj
   })
-  # clustering result
-  int_clust <- reactive({
+  ## hierarchical clustering result
+  int_hclust <- reactive({
+    req(int_adj_mat())
     AveDis <- 1-int_adj_mat()
     hclust(dist(AveDis))
   })
-  # plot
+  ## coordinates
+  int_coords <- reactive({
+    req(int_adj_mat())
+    mds(int_adj_mat())$conf
+  })
+  ## network plot
   output$int_net <- renderPlot({
-    req(int_adj_mat(), int_clust())
-    
-    # plot
-    int_adj_mat <- int_adj_mat()[which(int_adj_mat() < input$thres_cor2)] <- 0
-    int_net <- graph_from_adjacency_matrix(int_adj_mat, 
+    req(int_adj_mat(), int_hclust(), input$thres_cor2, int_coords())
+
+    # initialize graph
+    int_adj <- int_adj_mat()
+    int_adj[which(int_adj < input$thres_cor2)] <- 0
+    int_net <- graph_from_adjacency_matrix(int_adj,
                                          mode = "undirected", weighted = T, diag=F)
+
+    # edges
     E(int_net)$width <- E(int_net)$weight*5
-    
+
     # node properties
     V(int_net)$color <- rgb(0.2, 0.4, 0.8, alpha=0.4)
     coords <- mds(int_adj_mat())$conf
-    
+
+    # if choose to visualize grouping results
     if(input$hclust2){
-      clust_group <- cutree(int_clust(), k = input$nclust2)
+      clust_group <- cutree(int_hclust(), k = input$nclust2)
       vcolor <- brewer.pal(input$nclust2, "Accent")[clust_group]
       names(vcolor) <- names(clust_group)
       V(int_net)$color <- vcolor[V(int_net)$name]
     }
-    
-    plot(int_net, layout=coords,
-           vertex.color =  V(int_net)$color, edge.color = NA,
+
+    plot(int_net, layout=int_coords(),
+           vertex.color =  V(int_net)$color, 
            vertex.frame.color=  V(int_net)$color,
            vertex.label.cex=1,
            vertex.size = 20)
   })
-  #   } else {
-  #     ggdendrogram(int_plot_list()$clust, rotate = F, size = 2)+
-  #       labs(title = "")
-  #   }})
-  # int_plot_list <- reactive({
-  #   req(df(), input$id_var, input$time_var, input$cor_type)
-  #   # average adjacency matrix
-  #   int_adj <- GetAdjMat(data= df() %>% select(!c(input$id_var)) %>% rename(time = input$time_var), 
-  #                        cor_method = input$cor_type,
-  #                        mds_type = "Splines")
-  #   AveAdj <- apply(simplify2array(int_adj), c(1, 2), mean, na.rm = T)
-  #   AveDis <- 1-AveAdj
-  #   # coords
-  #   coords <- mds(AveAdj)$conf
-  #   # clustering 
-  #   clust <- hclust(dist(AveDis))
-  #   # plot
-  #   int_net <- graph_from_adjacency_matrix(AveAdj, 
-  #                                          mode = "undirected", weighted = T, diag=F)
-  #   list(clust = clust, int_net = int_net, coords = coords)
-  # })
-  # output$int_plot <- renderPlot({
-  #   req(int_plot_list(), input$nclust)
-  #   
-  #   if(input$int_plot_type == 1){
-  #     clust_group <- cutree(int_plot_list()$clust, k = input$nclust)
-  #     # color
-  #     clust_color <- brewer.pal(input$nclust, "Accent")[clust_group]
-  #   
-  #     plot(int_plot_list()$int_net, layout=int_plot_list()$coords, 
-  #          vertex.color = clust_color, edge.color = NA,
-  #          vertex.frame.color=clust_color,
-  #          vertex.label.cex=1,
-  #          vertex.size = 20)
-  #   } else {
-  #     ggdendrogram(int_plot_list()$clust, rotate = F, size = 2)+
-  #       labs(title = "")
-  #   }})
+  output$int_tree <- renderPlot({
+    ggdendrogram(int_hclust(), rotate = F, size = 2)+
+            labs(title = "")
+    
+  })
   
 }
 
