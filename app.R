@@ -182,7 +182,7 @@ server <- function(input, output) {
   ## data upload
   df <- reactive({
     req(input$df_path)
-    read.csv(input$df_path$datapath)
+    read.csv(input$df_path$datapath, check.names = F)
   })
   ## data preview  
   output$show_df <- renderDataTable({df()},
@@ -337,33 +337,51 @@ server <- function(input, output) {
   }, height = 500, width = 500)
   
   # tab 3: temporal network and group labels
-  ## time axis
-  output$time_bar <- renderUI({
-    req(df(), input$time_var, input$time_type)
-    # time bar: by the original time 
-    if(input$time_type=="Discrete"){
-      tvec <- sort(unique(df()[, input$time_var]))
-      time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
-                      grid = TRUE)
-    }
-    else{
-      trange <- range(df()[ ,input$time_var], na.rm=T)
-      time_bar <- sliderInput("time_bar", label = input$time_var, min=trange[1], max=trange[2], value=trange[1],
-                              ticks=FALSE)
-    }
-    time_bar
-  }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
-  
+  ## variable list
   output$varnames3 <- renderUI({
     req(df(), input$time_var, input$id_var)
     checkboxGroupInput("select_var3", label = "Variables", 
                        choices = colnames(df() %>% select(!c(input$time_var, input$id_var))))
   })
   
+  ## data set to analyze
+  confirmed <- reactiveVal(NULL)
+  observeEvent(input$confirm, {confirmed(input$select_var3)})
+  df_net <- reactive({
+    req(df(), input$id_var, input$time_var)
+    if(is.null(confirmed())){
+      df() %>% select(!c(input$id_var)) %>% 
+        rename(time = input$time_var) %>% 
+        filter(!if_all(!time, is.na))
+    }
+    else{
+      df()[, c(input$time_var, confirmed())] %>%
+        rename(time = input$time_var) %>%
+        filter(!if_all(confirmed(), is.na))
+    }
+  })
+  ## time axis
+  output$time_bar <- renderUI({
+    req(df_net(), input$time_type)
+    # time bar: by the original time 
+    if(input$time_type=="Discrete"){
+      tvec <- sort(unique(df_net()[, "time"]))
+      time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
+                      grid = TRUE)
+    }
+    else{
+      trange <- range(df_net()[ , "time"], na.rm=T)
+      time_bar <- sliderInput("time_bar", label = input$time_var, min=trange[1], max=trange[2], value=trange[1],
+                              ticks=FALSE)
+    }
+    time_bar
+  }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
+  
+  
   ## grouping results
   output$nclust <- renderUI({
     req(input$hclust)
-    numericInput("nclust", label = "Number of groups", value = 3)
+    numericInput("nclust", label = "Number of groups", value = 1)
   })
   output$group_type <- renderUI({
     req(input$hclust)
@@ -373,21 +391,21 @@ server <- function(input, output) {
   })
 
   # calculate adjacency matrix at each time point
-  confirmed <- reactiveVal(NULL)
-  observeEvent(input$confirm, {confirmed(input$select_var3)})
   adj_mat <- reactive({
-    req(df(), input$time_type)
+    req(df_net(), input$time_type)
     mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
-    if(is.null(confirmed())){
-      GetAdjMat(data= df() %>% select(!c(input$id_var)) %>% rename(time = input$time_var), 
+    # if(is.null(confirmed())){
+      GetAdjMat(data= df_net(),
                 cor_method = input$cor_type,
                 mds_type = mds_type)
-    }
-    else{
-      GetAdjMat(data=df()[, c(input$time_var, confirmed())] %>% rename(time = input$time_var), 
-                cor_method = input$cor_type,
-                mds_type = mds_type)
-    }
+    # }
+    # else{
+    #   GetAdjMat(data=df()[, c(input$time_var, confirmed())] %>%
+    #               rename(time = input$time_var) %>%
+    #               filter(!if_all(confirmed(), is.na)),
+    #             cor_method = input$cor_type,
+    #             mds_type = mds_type)
+    # }
   })
   
 
@@ -417,9 +435,9 @@ server <- function(input, output) {
   
   ## calculate coordinates
   coord_list <- reactive({
-      req(adj_mat(), df(), input$time_type)
+      req(adj_mat(), df_net(), input$time_type)
       mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
-      t_uniq <- sort(unique(df()[, input$time_var])) # original time scale
+      t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
       t_id <- seq_along(t_uniq) # time index
       # asynchronous
       # future({
@@ -445,8 +463,8 @@ server <- function(input, output) {
       withProgress(
         value=0, message = "Processing", detail="This may take a while...",
         {
-          req(adj_mat(), df(), input$time_var, graph_list(), group_list(), coord_list(), input$nclust)
-          t_uniq <- sort(unique(df()[, input$time_var])) # original time scale
+          req(adj_mat(), df_net(),  graph_list(), group_list(), coord_list(), input$nclust)
+          t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
           t_id <- seq_along(t_uniq) # time index
           
           input_tid <- which(t_uniq==input$time_bar)
@@ -482,8 +500,8 @@ server <- function(input, output) {
     })
     ## group label plot
   output$group_plot <- renderPlot({
-    req(group_list(), df(), input$time_var, input$nclust, input$group_plot, input$time_bar)
-    tvec <- sort(unique((df()[ ,input$time_var])))
+    req(group_list(), df_net(), input$nclust, input$group_plot, input$time_bar)
+    tvec <- sort(unique((df_net()[ , "time"])))
     tid <- which(tvec==input$time_bar)
 
     group_label_list <- lapply(group_list(), function(hclust_fit){cutree(hclust_fit, k = input$nclust)})
