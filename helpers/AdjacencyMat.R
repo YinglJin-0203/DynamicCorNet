@@ -13,6 +13,7 @@ GetAdjMat <- function(data, sim = "correlation", cor_method = "pearson",
   
  
   if(mds_type=="Dynamic"){
+    # unique time point
     # remove NA in the correlation matrix
     # these NAs happen because 
     # 1. one or both variables is all missing, or
