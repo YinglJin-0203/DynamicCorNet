@@ -73,7 +73,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
   tabPanel(title = "Descriptives",
            tabsetPanel(
               ## sub-tab 1: single variable distribution
-                tabPanel(title = "Individual",
+                tabPanel(title = "Univariate",
                          # side bar 1
                          sidebarLayout(
                            sidebarPanel(
@@ -127,7 +127,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                # time bar
                uiOutput("time_bar"),
                # hierarchical grouping
-               checkboxInput("hclust", label = "Show groupng results", 
+               checkboxInput("hclust", label = "Show groups", 
                              value = TRUE),
                uiOutput("nclust"),
                uiOutput("group_type"), 
@@ -157,7 +157,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                            label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
                            ticks=FALSE),
                # hierarchical grouping
-               checkboxInput("hclust2", label = "Show groupng results", 
+               checkboxInput("hclust2", label = "Show groups", 
                              value = TRUE),
                uiOutput("nclust2"),
                # variable list
@@ -235,16 +235,17 @@ server <- function(input, output) {
         ggplot()+
         geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.5, fill = "grey")+
         geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
-        geom_line(aes(x=time, y=med))+
+        geom_line(data = df_sum %>% filter(!is.na(med)), aes(x=time, y=med))+
         scale_x_continuous(breaks = xlab$time, name = input$time_var,
                            sec.axis = sec_axis(~., name = "N (pct) of missing", breaks = xlab$time, label=xlab$Nmiss))+
-        theme(axis.text.x.top = element_text(angle=45))+
+        theme(axis.text.x.top = element_text(angle=90))+
         labs(x=input$time_var, y=input$select_var1, 
              title = paste0("Distribution and temporal trend of ", input$select_var1))
     }
     else{
       plot_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
         rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
+        filter(complete.cases(.)) %>%
         ggplot()+
         geom_line(aes(x=time, y=var, group=id), alpha = 0.5, linewidth = 0.5)+
         geom_smooth(aes(x=time, y=var), method = gam, formula = y~s(x))+
@@ -460,8 +461,8 @@ server <- function(input, output) {
   output$mds_note2 <- renderPrint({
     HTML("
     Observations may be excluded for the following reasons:
-        <li>Empty row or columns</li>
-        <li>Less than two observations at any given time. Correlation is not realiable due to inssuficiant sample. </li>
+        <li>Empty rows or columns</li>
+        <li>Less than two observations at any given time. Correlation is not realiable due to insufficiant sample. </li>
          ")
   })
     
