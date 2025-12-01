@@ -103,7 +103,7 @@ DynamicMDS <- function(adj_mat, lambda=10){
       init_coord[[t]] <- smacofSym(dis_mat[[t]], ndim = 2)$conf
     }
     else{
-      init_coord[[t]] <- NULL
+      init_coord[[t]] <- matrix(rnorm(dim(dis_mat[[t]])[1]*2), ncol = 2)
     }
   }
   
