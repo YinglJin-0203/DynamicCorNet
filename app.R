@@ -128,7 +128,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                uiOutput("time_bar"),
                # hierarchical grouping
                checkboxInput("hclust", label = "Show groups", 
-                             value = TRUE),
+                             value = FALSE),
                uiOutput("nclust"),
                uiOutput("group_type"), 
                # variable list
@@ -158,7 +158,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                            ticks=FALSE),
                # hierarchical grouping
                checkboxInput("hclust2", label = "Show groups", 
-                             value = TRUE),
+                             value = FALSE),
                uiOutput("nclust2"),
                # variable list
                uiOutput("varnames4"),
@@ -372,16 +372,16 @@ server <- function(input, output) {
   output$time_bar <- renderUI({
     req(df_net(), input$time_type)
     # time bar: by the original time 
-    if(input$time_type=="Discrete"){
+   # if(input$time_type=="Discrete"){
       tvec <- sort(unique(df_net()[, "time"]))
       time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
                       grid = TRUE)
-    }
-    else{
-      trange <- range(df_net()[ , "time"], na.rm=T)
-      time_bar <- sliderInput("time_bar", label = input$time_var, min=trange[1], max=trange[2], value=trange[1],
-                              ticks=FALSE)
-    }
+    #}
+    # else{
+    #   trange <- range(df_net()[ , "time"], na.rm=T)
+    #   time_bar <- sliderInput("time_bar", label = input$time_var, min=trange[1], max=trange[2], value=trange[1],
+    #                           ticks=FALSE)
+    # }
     time_bar
   }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
   
@@ -471,24 +471,23 @@ server <- function(input, output) {
       withProgress(
         value=0, message = "Processing", detail="This may take a while...",
         {
-          req(adj_mat(), df_net(),  graph_list(), group_list(), coord_list(), input$nclust)
+          req(adj_mat(), df_net(),  graph_list(), group_list(), coord_list())
           t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
           t_id <- seq_along(t_uniq) # time index
           
           input_tid <- which(t_uniq==input$time_bar)
           graph_t <- graph_list()[[input_tid]]
           group_t <- group_list()[[input_tid]]
-          group_t <- cutree(group_t, k = input$nclust)
           coord_t <- coord_list()[[input_tid]]
           
           # color 
-        
-          group_c <- brewer.pal(input$nclust, "Accent")[group_t]
-          names(group_c) <- names(group_t)
-          
           if(input$hclust){
+            group_t <- cutree(group_t, k = input$nclust)
+            group_c <- brewer.pal(input$nclust, "Accent")[group_t]
+            names(group_c) <- names(group_t)
             V(graph_t)$color <- group_c[V(graph_t)$name]
           }
+          
     
           # plot
           # incProgress(0.5, detail = "Plotting")
@@ -580,7 +579,7 @@ server <- function(input, output) {
  ## clustering
   output$nclust2 <- renderUI({
     req(input$hclust2)
-    numericInput("nclust2", label = "Number of groups", value = 3)
+    numericInput("nclust2", label = "Number of groups", value = 1)
   })
   # integral adjacency matrix
   int_adj_mat <- reactive({
