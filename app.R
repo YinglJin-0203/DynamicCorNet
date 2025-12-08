@@ -507,7 +507,7 @@ server <- function(input, output) {
     })
     ## group label plot
   output$group_plot <- renderPlot({
-    req(group_list(), df_net(), input$nclust, input$group_plot, input$time_bar)
+    req(input$hclust, input$nclust, group_list(), df_net(), input$group_plot, input$time_bar)
     tvec <- sort(unique((df_net()[ , "time"])))
     tid <- which(tvec==input$time_bar)
 
@@ -548,6 +548,7 @@ server <- function(input, output) {
   })
   ## note
   output$group_note <- renderText({
+    req(input$hclust)
     if(input$group_plot==1){
       HTML("
         <li>This plot visualizes the change of group structure of variables over time using an <a href='https://corybrunson.github.io/ggalluvial/' target='_blank'>Alluvial plot</a></li>
