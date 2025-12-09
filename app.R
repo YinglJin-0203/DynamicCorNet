@@ -101,7 +101,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                        
                        # main panel
                          mainPanel(
-                           h3("Emparical correlation for a pair of variables"),
+                           h3("Empirical correlation for a pair of variables"),
                            plotOutput("trendp")
                          ))),
               ## subtab 3: all variables
@@ -283,43 +283,71 @@ server <- function(input, output) {
   })
   
   output$trendp <- renderPlot({
-    req(df(), input$select_var2, input$time_var, input$id_var)
+    req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
     validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
     
     df_pair <- df()[, c(input$time_var, input$id_var, input$select_var2)] %>%
       rename(time=input$time_var, id = input$id_var)
     t_uniq <- unique(df_pair$time)
-
-    p1 <- df_pair %>%
-      pivot_longer(input$select_var2) %>%
-      ggplot(aes(x = time, y=value, fill=name, colour = name, group=interaction(time, name)))+
-      geom_boxplot(position = "dodge2", alpha = 0.7)+
-      geom_jitter(size = 0.5)+
-      scale_fill_brewer(palette = "Set2")+
-      scale_color_brewer(palette = "Set2")+
-      scale_x_continuous(breaks = t_uniq)+
-      labs(title = "Variable distribution", x = input$time_var, y = " ")+
-      theme(legend.position = "bottom", legend.ticks = element_blank())
-    # correlation trend
-    p2 <- df_pair %>% group_by(time) %>%
-      group_modify(~{data.frame(cor = cor(.x[, input$select_var2], method = input$cor_type,
-                                          use = "pairwise.complete.obs")[1, 2])})  %>%
-      ungroup() %>% filter(complete.cases(.)) %>% ggplot()+
-      geom_point(aes(x=time, y=cor))+
-      geom_line(aes(x=time, y=cor))+
-      labs(title = "Empirical correlation", x = input$time_var, y = " ")+
-      scale_x_continuous(breaks = t_uniq)
+    
+    if(input$time_type == "Discrete"){
+        p1 <- df_pair %>%
+          pivot_longer(input$select_var2) %>%
+          ggplot(aes(x = time, y=value, fill=name, colour = name, group=interaction(time, name)))+
+          geom_boxplot(position = "dodge2", alpha = 0.7)+
+          geom_jitter(size = 0.5)+
+          scale_fill_brewer(palette = "Set2")+
+          scale_color_brewer(palette = "Set2")+
+          scale_x_continuous(breaks = t_uniq)+
+          labs(title = "Variable distribution", x = input$time_var, y = " ")+
+          theme(legend.position = "bottom")
+        # correlation trend
+        p2 <- df_pair %>% group_by(time) %>%
+          group_modify(~{data.frame(cor = cor(.x[, input$select_var2], method = input$cor_type,
+                                              use = "pairwise.complete.obs")[1, 2])})  %>%
+          ungroup() %>% filter(complete.cases(.)) %>% ggplot()+
+          geom_point(aes(x=time, y=cor))+
+          geom_line(aes(x=time, y=cor))+
+          labs(title = "Empirical correlation", x = input$time_var, y = " ")+
+          scale_x_continuous(breaks = t_uniq)}
+    else {
+      p1 <- df_pair %>%
+        pivot_longer(input$select_var2) %>%
+        ggplot(aes(x = time, y=value, colour = name, group=interaction(id, name)))+
+        geom_line(alpha = 0.7, linewidth=0.5)+
+        scale_fill_brewer(palette = "Set2")+
+        scale_color_brewer(palette = "Set2")+
+        # scale_x_continuous(breaks = t_brk)+
+        labs(title = "Variable trend", x = input$time_var, y = " ")+
+        theme(legend.position = "bottom")
+      # correlation trend
+      p2 <- df_pair %>% group_by(time) %>%
+        group_modify(~{data.frame(cor = cor(.x[, input$select_var2], method = input$cor_type,
+                                            use = "pairwise.complete.obs")[1, 2])})  %>%
+        ungroup() %>% filter(complete.cases(.)) %>% ggplot()+
+        geom_point(aes(x=time, y=cor))+
+        geom_line(aes(x=time, y=cor))+
+        labs(title = "Empirical correlation", x = input$time_var, y = " ")
+        # scale_x_continuous(breaks = t_brk)}
+    }
     pall <- grid.arrange(p2, p1, ncol = 1, heights = c(0.7, 1))
     pall
   },height = 600, width = "auto")
   
   # subtab 2.3: overall correlation heatmap
   output$time_bar1 <- renderUI({
-    req(df(), input$time_var, input$id_var)
+    req(df(), input$time_var, input$id_var, input$time_type)
     # time bar
     tvec <- sort(unique((df()[ ,input$time_var])))
-    sliderTextInput("time_bar1", "Time of heatmap", choices = tvec, selected = tvec[1],
-                    grid = TRUE)
+    if(input$time_type == "Discrete"){
+      sliderTextInput("time_bar1", "Time of heatmap", choices = tvec, selected = tvec[1],
+                      grid = TRUE)
+    }
+    else {
+      sliderTextInput("time_bar1", "Time of heatmap", choices = tvec, selected = tvec[1],
+                      grid = FALSE)
+    }
+    
   })
   output$heatmap <- renderPlot({
     req(df(), input$time_var, input$id_var)
@@ -371,17 +399,16 @@ server <- function(input, output) {
   ## time axis
   output$time_bar <- renderUI({
     req(df_net(), input$time_type)
-    # time bar: by the original time 
-   # if(input$time_type=="Discrete"){
-      tvec <- sort(unique(df_net()[, "time"]))
+    # time bar: by the original time
+    tvec <- sort(unique(df_net()[, "time"]))
+   if(input$time_type=="Discrete"){
       time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
                       grid = TRUE)
-    #}
-    # else{
-    #   trange <- range(df_net()[ , "time"], na.rm=T)
-    #   time_bar <- sliderInput("time_bar", label = input$time_var, min=trange[1], max=trange[2], value=trange[1],
-    #                           ticks=FALSE)
-    # }
+    }
+    else{
+      time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
+                                  grid = FALSE)
+    }
     time_bar
   }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
   
