@@ -629,6 +629,7 @@ server <- function(input, output) {
   ## hierarchical clustering result
   int_hclust <- reactive({
     req(int_adj_mat())
+    validate(need(sum(is.na(int_adj_mat())) == 0, "Correlation cannot be calculated, likely due to empty or uniform columns."))
     AveDis <- 1-int_adj_mat()
     hclust(dist(AveDis))
   })
@@ -640,7 +641,8 @@ server <- function(input, output) {
   ## network plot
   output$int_net <- renderPlot({
     req(int_adj_mat(), int_hclust(), input$thres_cor2, int_coords())
-
+    # checks
+    validate(need(sum(is.na(int_adj_mat())) == 0, "Correlation cannot be calculated, likely due to empty or uniform columns."))
     # initialize graph
     int_adj <- int_adj_mat()
     int_adj[which(int_adj < input$thres_cor2)] <- 0
@@ -669,12 +671,14 @@ server <- function(input, output) {
            vertex.size = 20)
   })
   output$int_tree <- renderPlot({
+    req(input$hclust2)
     ggdendrogram(int_hclust(), rotate = F, size = 2)+
             labs(title = "")
     
   })
   ## note
   output$int_note <- renderPrint({
+    req(input$hclust2)
     HTML(paste0("Both plots are generated based on the integerated ", input$cor_type, " correlation matrix. To change the type of correlation, please move back to the second tab."))
   })
   
