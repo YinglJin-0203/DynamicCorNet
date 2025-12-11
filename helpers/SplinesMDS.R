@@ -24,13 +24,20 @@ SplMDS_stress_t <- function(t, xi1, xi2, dissim_list, P, K, init_coord, lambda, 
   # center around initial coordinates
   c1 <- init_coord[,1] + xi1 %*% Xmat[t, ]
   c2 <- init_coord[,2] + xi2 %*% Xmat[t, ]
+  # c1 <- c1[,1]
+  # c2 <- c2[,1]
   
   # pariwise euclidean distance
-  dist_t <-as.matrix(dist(cbind(c1,c2), diag = T, upper = T))
+  # dist_t <-as.matrix(dist(cbind(c1,c2), diag = T, upper = T)) # dist() is a o(n^2) operation
+  # dist_t <- sqrt(outer(c1, c1, "-")^2 + outer(c2, c2, "-")^2)
+  # dist_t <- Rfast::Dist(cbind(c1, c2))
+  dist_t <- fields::rdist(cbind(c1, c2), cbind(c1, c2), compact = T)
   dist_t <- dist_t[lower.tri(dist_t)]
+  # dist_t <- Matrix::tril(dist_t, 0)
   
   # Kruskal stress
   diss_t <- dissim_list[[t]]
+  # diss_t <- Matrix::tril(diss_t, 0)
   diss_t <- diss_t[lower.tri(diss_t)]
   stress_t = sqrt(sum((diss_t-dist_t)^2)/sum(diss_t^2))
   
