@@ -18,10 +18,11 @@
 # init_coord: initialization of layout. P by 2 matrix
 # lambda: penalization parameter
 
-SplMDS_stress_t <- function(t, xi1, xi2, dissim_list, P, K, init_coord, lambda, Xmat, Xmat2dev){
+SplMDS_stress_t <- function(t, xi1, xi2, dissim_list, P, init_coord, lambda, Xmat, Xmat2dev){
   
   # coordinates, P by T
   # center around initial coordinates
+  K <- ncol(Xmat)
   c1 <- init_coord[,1] + xi1 %*% Xmat[t, ]
   c2 <- init_coord[,2] + xi2 %*% Xmat[t, ]
   # c1 <- c1[,1]
@@ -55,13 +56,16 @@ SplMDS_stress_t <- function(t, xi1, xi2, dissim_list, P, K, init_coord, lambda, 
 # xi_vec: 1D vector with length 2*P*K
 # t_vec: all unique time points
 
-stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P, K, init_coord, lambda, Xmat, Xmat2dev){
+stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P, init_coord, lambda, Xmat, Xmat2dev){
+  
+  K <- ncol(Xmat)
   xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
   xi2 = matrix(xi_vec[(P*K+1): (P*K*2)], nrow = P)
   
+  
   stress <- sapply(tid_vec, SplMDS_stress_t, 
                    xi1=xi1, xi2=xi2, dissim_list = dissim_list, 
-                   P = P, K = K,
+                   P = P,
                    init_coord=init_coord,
                    lambda = lambda,
                    Xmat = Xmat, 
@@ -80,7 +84,7 @@ stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P, K, init_coord, lambda
 # P: total number of variables/maximum number of nodes across all time slices
 # 
 
-SplinesMDS <- function(adj_mat, lambda, K, P, tvec){
+SplinesMDS <- function(adj_mat, lambda, P, tvec){
   
   tid <- seq_along(tvec) # time index
   
@@ -96,15 +100,21 @@ SplinesMDS <- function(adj_mat, lambda, K, P, tvec){
   init_coord <- init_coord$conf
   
   # spline basis 
-  Xmat <- bSpline(tvec, df = K, degree = 3, derivs = 0)
-  Xmat2dev <- bSpline(tvec, df = K, degree = 3, derivs = 2)
+  internal_t <- tvec[-c(1, length(tvec))]
+  internal_knot <- ifelse(length(internal_t) < 30, internal_t, 
+                          seq(0, 1, length.out = 32)[-c(1, 32)])
+  Xmat <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 0)
+  Xmat2dev <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 2)
+  K <- ncol(Xmat)
+  # Xmat <- mSpline(tvec, df = K, degree = 2, derivs = 0)
+  # Xmat2dev <- mSpline(tvec, df = K, degree = 2, derivs = 2)
   
   # Optimize with regard to 
   final_xi_vec <- optim(
     par = rnorm(P*K*2), 
     fn = stress_SplMDS,
     dissim_list = dis_mat,
-    P = P, K = K, tid_vec = tid, lambda = lambda, init_coord = init_coord,
+    P = P, tid_vec = tid, lambda = lambda, init_coord = init_coord,
     method = "BFGS", control = list(maxit=500),
     Xmat = Xmat, Xmat2dev = Xmat2dev)
   

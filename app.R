@@ -45,12 +45,13 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              # side bar: upload
              sidebarPanel(
                # upload file
-               fileInput(inputId = "df_path", label = "Upload data",
+               fileInput(inputId = "df_path", label = "Upload a long format csv file",
                          accept = c(".csv")),
                tagList(
-                 icon("info-circle"), 
-                 em("Correlation measures may be unrealiable when the proportion of missing is large!")
-                 ),
+                 icon("info-circle"),
+                 em("long format data requires each row to represent an observation at each time point. 
+                    Multiple observations at the same time point should be stacked vertically.")
+               ),
                br(), br(),
                # specify subject ID and time
                uiOutput("time_var"),
@@ -97,6 +98,11 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                         sidebarPanel( # correlation type
                           selectInput("cor_type", label="Type of correlation",
                                       choices = list("pearson", "spearman")),
+                          tagList(
+                            icon("info-circle"),
+                            em("Correlation measures may be unrealiable when the proportion of missing is large!")
+                            ),
+                          br(), br(),
                           uiOutput("varnames2")),
                        
                        # main panel
@@ -469,7 +475,7 @@ server <- function(input, output) {
       # asynchronous
       # future({
         if(mds_type=="Splines"){
-          SplinesMDS(adj_mat(), lambda = 10, K = 20, P = dim(adj_mat()[[1]])[1],
+          SplinesMDS(adj_mat(), lambda = 10, P = dim(adj_mat()[[1]])[1],
                      tvec = t_uniq)
         }
         else{
