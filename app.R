@@ -87,9 +87,13 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                          mainPanel(# summary for selected variable
                                    h3('Single variable summary'),
                                    plotOutput("sum_tb"),
-                                   h4("Note:"), 
-                                   htmlOutput("sum_tb_note")
-                                             )
+                                   h4("Note:"),
+                                   htmlOutput("sum_tb_note"),
+                                   br(),
+                                   h3("Missing"),
+                                   plotOutput("miss_plot"),
+                                   h4("Note"),
+                                   htmlOutput("miss_note"))
               )),
               ## sub-tab 2: pairwise
               tabPanel(title = "Pairwise",
@@ -103,6 +107,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                             em("Correlation measures may be unrealiable when the proportion of missing is large!")
                             ),
                           br(), br(),
+                          checkboxInput("scaleY", "Scale correlation axis to data?", value = F),
                           uiOutput("varnames2")),
                        
                        # main panel
@@ -227,6 +232,7 @@ server <- function(input, output) {
   ## summary of single variables
   output$sum_tb <- renderPlot({
     req(df(), input$select_var1, input$time_var, input$id_var)
+    ### summary plot
     if(input$time_type=="Discrete"){
       df_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
         rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
@@ -234,17 +240,18 @@ server <- function(input, output) {
         mutate(med=median(var, na.rm = T)) %>% 
         mutate(Nmiss = sum(is.na(var)), 
                Pctmiss = sum(is.na(var))/length(var))
-      xlab <- df_sum %>% select(time, Nmiss, Pctmiss) %>% distinct(.) %>%
-        mutate(Nmiss = paste0(Nmiss, " (", round(100*Pctmiss, 2), "%)"))
+      t_uniq <- sort(unique(df_sum$time))
+      # xlab <- df_sum %>% select(time, Nmiss, Pctmiss) %>% distinct(.) %>%
+      #   mutate(Nmiss = paste0(Nmiss, " (", round(100*Pctmiss, 2), "%)"))
       # summary plot
       plot_sum <- df_sum %>% 
         ggplot()+
         geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.5, fill = "grey")+
         geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
         geom_line(data = df_sum %>% filter(!is.na(med)), aes(x=time, y=med))+
-        scale_x_continuous(breaks = xlab$time, name = input$time_var,
-                           sec.axis = sec_axis(~., name = "N (pct) of missing", breaks = xlab$time, label=xlab$Nmiss))+
-        theme(axis.text.x.top = element_text(angle=90))+
+        scale_x_continuous(breaks = t_uniq, name = input$time_var)+
+                           # sec.axis = sec_axis(~., name = "N (pct) of missing", breaks = xlab$time, label=xlab$Nmiss))+
+        # theme(axis.text.x.top = element_text(angle=90))+
         labs(x=input$time_var, y=input$select_var1, 
              title = paste0("Distribution and temporal trend of ", input$select_var1))
     }
@@ -258,10 +265,32 @@ server <- function(input, output) {
         labs(x=input$time_var, y = input$select_var1,
              title = paste0("Distribution and temporal trend of ", input$select_var1))
     }
-    
     plot_sum
   })
-  
+  ## missing plot
+  output$miss_plot <- renderPlot({
+    req(df(), input$select_var1, input$time_var, input$id_var)
+    # uni_id <- unique(df[ ,input$id_var])
+   df_miss <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
+      rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
+      mutate(id = as.factor(id)) %>%
+      arrange(time)
+   if(input$time_type=="Discrete"){
+      df_miss %>%
+       pivot_wider(id_cols = "id", names_from = "time", values_from = "var") %>%
+       select(-id) %>%
+       visdat::vis_miss(.)+
+       labs(x=paste0(input$time_var, " (% missing)"), y = "ID")
+   } else{
+     df_miss %>% ggplot()+
+       geom_tile(aes(x=time, y=id, fill = is.na(var)))+
+       geom_line(aes(x=time, y=id), alpha = 0.3, color = "grey20")+
+       scale_fill_manual(name = "", values = c("grey80", "grey20"), labels = c("Present", "Missing"))+
+       scale_x_continuous(breaks = seq(0, 300, by = 20))+
+       theme(legend.position = "bottom", axis.text.y = element_blank())+
+       labs(x=input$time_var, y = "ID")
+   }
+  })
   ## notes for the boxplot
   output$sum_tb_note <- renderText({
     if(input$time_type=="Discrete"){
@@ -280,6 +309,13 @@ server <- function(input, output) {
     }
     print(meg)
   })
+  ## mising value note
+  output$miss_note <- renderText({
+    HTML("Correlation measure is sensitive to the missing values and can be unrealiable if the propotion of missing value is large.
+         If at any time point the total number of observation is less than 20, 
+         we may consider the correlation calculated at this time point too unreliable and unfit for further analysis.
+         We recommend treating such correlation as missing at this time point.")
+  })
   
   ## subtab 2.2: pairwise correlaion
   output$varnames2 <- renderUI({
@@ -291,11 +327,32 @@ server <- function(input, output) {
   output$trendp <- renderPlot({
     req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
     validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
-    
+    # sub data
     df_pair <- df()[, c(input$time_var, input$id_var, input$select_var2)] %>%
       rename(time=input$time_var, id = input$id_var)
     t_uniq <- unique(df_pair$time)
-    
+    N <- length(unique(df()[ , input$id_var]))
+    # correlation and proportion of complete pairs
+    var1 <- input$select_var2[1]
+    var2 <- input$select_var2[2]
+    df_cor <- df_pair %>% 
+      group_by(time) %>%
+      summarize(cor = cor(.data[[var1]], .data[[var2]], 
+                          use = "pairwise.complete.obs"),
+                Npair = sum(complete.cases(.data[[var1]], .data[[var2]]))/N)
+    # correlation 
+    # correlation trend
+    p2 <- df_cor %>% 
+      filter(complete.cases(.)) %>%
+      ggplot()+
+      geom_point(aes(x=time, y=cor, color = Npair, size = Npair))+
+      geom_line(aes(x=time, y=cor))+
+      labs(title = "Empirical correlation", x = input$time_var, y = " ",
+           color = "% of complete pairs", size = " ")+
+      theme(legend.position = "bottom")
+    if(!input$scaleY){p2 <- p2 + ylim(-1, 1)}# scale correlation axis
+    if(input$time_type == "Discrete"){p2 <- p2 + scale_x_continuous(breaks = t_uniq)}
+    # trend plot
     if(input$time_type == "Discrete"){
         p1 <- df_pair %>%
           pivot_longer(input$select_var2) %>%
@@ -307,15 +364,7 @@ server <- function(input, output) {
           scale_x_continuous(breaks = t_uniq)+
           labs(title = "Variable distribution", x = input$time_var, y = " ")+
           theme(legend.position = "bottom")
-        # correlation trend
-        p2 <- df_pair %>% group_by(time) %>%
-          group_modify(~{data.frame(cor = cor(.x[, input$select_var2], method = input$cor_type,
-                                              use = "pairwise.complete.obs")[1, 2])})  %>%
-          ungroup() %>% filter(complete.cases(.)) %>% ggplot()+
-          geom_point(aes(x=time, y=cor))+
-          geom_line(aes(x=time, y=cor))+
-          labs(title = "Empirical correlation", x = input$time_var, y = " ")+
-          scale_x_continuous(breaks = t_uniq)}
+        }
     else {
       p1 <- df_pair %>%
         pivot_longer(input$select_var2) %>%
@@ -326,17 +375,9 @@ server <- function(input, output) {
         # scale_x_continuous(breaks = t_brk)+
         labs(title = "Variable trend", x = input$time_var, y = " ")+
         theme(legend.position = "bottom")
-      # correlation trend
-      p2 <- df_pair %>% group_by(time) %>%
-        group_modify(~{data.frame(cor = cor(.x[, input$select_var2], method = input$cor_type,
-                                            use = "pairwise.complete.obs")[1, 2])})  %>%
-        ungroup() %>% filter(complete.cases(.)) %>% ggplot()+
-        geom_point(aes(x=time, y=cor))+
-        geom_line(aes(x=time, y=cor))+
-        labs(title = "Empirical correlation", x = input$time_var, y = " ")
-        # scale_x_continuous(breaks = t_brk)}
     }
-    pall <- grid.arrange(p2, p1, ncol = 1, heights = c(0.7, 1))
+    # display
+    pall <- grid.arrange(p2, p1, ncol = 1, heights = c(1, 1))
     pall
   },height = 600, width = "auto")
   
@@ -472,16 +513,13 @@ server <- function(input, output) {
       mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
       t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
       t_id <- seq_along(t_uniq) # time index
-      # asynchronous
-      # future({
         if(mds_type=="Splines"){
-          SplinesMDS(adj_mat(), lambda = 10, P = dim(adj_mat()[[1]])[1],
+          SplinesMDS(adj_mat(), lambda = 8, P = dim(adj_mat()[[1]])[1],
                      tvec = t_uniq)
         }
         else{
           DynamicMDS(adj_mat(), 5)
         }
-      # })
   })
 
   # plot

@@ -100,11 +100,16 @@ SplinesMDS <- function(adj_mat, lambda, P, tvec){
   init_coord <- init_coord$conf
   
   # spline basis 
-  internal_t <- tvec[-c(1, length(tvec))]
-  internal_knot <- ifelse(length(internal_t) < 30, internal_t, 
-                          seq(0, 1, length.out = 32)[-c(1, 32)])
-  Xmat <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 0)
-  Xmat2dev <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 2)
+  ## knots
+  if(length(tvec) < 32){
+    internal_knot <- tvec[-c(1, length(tvec))]
+  } else{
+    internal_knot <- seq(min(tvec), max(tvec), length.out = 32)
+    internal_knot <- internal_knot[-c(1, 32)]
+  }
+  # design matrix
+  Xmat <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 0, Boundary.knots = range(tvec))
+  Xmat2dev <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 2, Boundary.knots = range(tvec))
   K <- ncol(Xmat)
   # Xmat <- mSpline(tvec, df = K, degree = 2, derivs = 0)
   # Xmat2dev <- mSpline(tvec, df = K, degree = 2, derivs = 2)
