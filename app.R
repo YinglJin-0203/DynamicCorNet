@@ -55,8 +55,6 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                br(), br(),
                # specify subject ID and time
                uiOutput("time_var"),
-               # uiOutput("bin_yn"),
-               # uiOutput("bin_width"),
                uiOutput("id_var")
              ),
                
@@ -73,14 +71,18 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
   # tab 2: descriptive
   tabPanel(title = "Descriptives",
            tabsetPanel(
-              ## sub-tab 1: single variable distribution
+              ## subtab 2.1: single variable distribution
                 tabPanel(title = "Univariate",
                          # side bar 1
                          sidebarLayout(
                            sidebarPanel(
                            uiOutput("varnames1"),
                            # time type with tooltip
-                           selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete")
+                           selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete"),
+                           # show detailed missing summary?
+                           checkboxInput("show_miss_npct", 
+                                         "Show the number and percentage of missing values?",
+                                         value=T)
                            ),
   
                          # main panel
@@ -90,12 +92,14 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                                    h4("Note:"),
                                    htmlOutput("sum_tb_note"),
                                    br(),
-                                   h3("Missing"),
+                                   h3("Missing pattern of each subject"),
                                    plotOutput("miss_plot"),
                                    h4("Note"),
-                                   htmlOutput("miss_note"))
+                                   htmlOutput("miss_note"),
+                                   br(),
+                                   dataTableOutput("miss_npct_tb"))
               )),
-              ## sub-tab 2: pairwise
+              ## subtab 2.2: pairwise
               tabPanel(title = "Pairwise",
                        # side bar
                        sidebarLayout(
@@ -113,9 +117,11 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                        # main panel
                          mainPanel(
                            h3("Empirical correlation for a pair of variables"),
-                           plotOutput("trendp")
+                           plotOutput("cor_trend_p"),
+                           br(),
+                           h3("Comparision of distribution and temporal trend"),
+                           plotOutput("trend_p")
                          ))),
-              ## subtab 3: all variables
               tabPanel(title = "Overall",
                          sidebarLayout(
                            sidebarPanel(uiOutput("time_bar1")),
@@ -291,6 +297,17 @@ server <- function(input, output) {
        labs(x=input$time_var, y = "ID")
    }
   })
+  ## table for missingness
+  output$miss_npct_tb <- renderDataTable({
+    req(df(), input$select_var1, input$time_var, input$id_var, input$show_miss_npct)
+    df_miss <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
+      rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
+      mutate(id = as.factor(id)) %>%
+      arrange(time) %>%
+      group_by(time) %>%
+      summarize(N = sum(is.na(var)), 
+                Pct = sum(is.na(var))/length(var))
+  })
   ## notes for the boxplot
   output$sum_tb_note <- renderText({
     if(input$time_type=="Discrete"){
@@ -323,8 +340,8 @@ server <- function(input, output) {
     checkboxGroupInput("select_var2", label = "Variables", choices = colnames(df()), 
                        selected = colnames(df())[3:4])
   })
-  
-  output$trendp <- renderPlot({
+  ### empirical correlations
+  output$cor_trend_p <- renderPlot({
     req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
     validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
     # sub data
@@ -340,34 +357,46 @@ server <- function(input, output) {
       summarize(cor = cor(.data[[var1]], .data[[var2]], 
                           use = "pairwise.complete.obs"),
                 Npair = sum(complete.cases(.data[[var1]], .data[[var2]]))/N)
-    # correlation 
-    # correlation trend
+    # plot
     p2 <- df_cor %>% 
       filter(complete.cases(.)) %>%
       ggplot()+
       geom_point(aes(x=time, y=cor, color = Npair, size = Npair))+
       geom_line(aes(x=time, y=cor))+
       labs(title = "Empirical correlation", x = input$time_var, y = " ",
-           color = "% of complete pairs", size = " ")+
-      theme(legend.position = "bottom")
+           color = "% of complete pairs", size = "% of complete pairs")+
+      theme(legend.position = "bottom")+
+      guides(color = guide_legend(order = 1), 
+             size = guide_legend(order = 1))
     if(!input$scaleY){p2 <- p2 + ylim(-1, 1)}# scale correlation axis
     if(input$time_type == "Discrete"){p2 <- p2 + scale_x_continuous(breaks = t_uniq)}
+    # display
+    p2
+  })
+  #### comparision of distribution and trend
+  output$trend_p <- renderPlot({
+    req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
+    validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
+    df_pair <- df()[, c(input$time_var, input$id_var, input$select_var2)] %>%
+      rename(time=input$time_var, id = input$id_var)
+    t_uniq <- unique(df_pair$time)
     # trend plot
     if(input$time_type == "Discrete"){
-        p1 <- df_pair %>%
-          pivot_longer(input$select_var2) %>%
-          ggplot(aes(x = time, y=value, fill=name, colour = name, group=interaction(time, name)))+
-          geom_boxplot(position = "dodge2", alpha = 0.7)+
-          geom_jitter(size = 0.5)+
-          scale_fill_brewer(palette = "Set2")+
-          scale_color_brewer(palette = "Set2")+
-          scale_x_continuous(breaks = t_uniq)+
-          labs(title = "Variable distribution", x = input$time_var, y = " ")+
-          theme(legend.position = "bottom")
-        }
+      p1 <- df_pair %>%
+        pivot_longer(input$select_var2) %>%
+        ggplot(aes(x = time, y=value, fill=name, colour = name, group=interaction(time, name)))+
+        geom_boxplot(position = "dodge2", alpha = 0.7)+
+        geom_jitter(size = 0.5)+
+        scale_fill_brewer(palette = "Set2")+
+        scale_color_brewer(palette = "Set2")+
+        scale_x_continuous(breaks = t_uniq)+
+        labs(title = "Variable distribution", x = input$time_var, y = " ")+
+        theme(legend.position = "bottom")
+    }
     else {
       p1 <- df_pair %>%
         pivot_longer(input$select_var2) %>%
+        filter(complete.cases(.)) %>%
         ggplot(aes(x = time, y=value, colour = name, group=interaction(id, name)))+
         geom_line(alpha = 0.7, linewidth=0.5)+
         scale_fill_brewer(palette = "Set2")+
@@ -377,9 +406,8 @@ server <- function(input, output) {
         theme(legend.position = "bottom")
     }
     # display
-    pall <- grid.arrange(p2, p1, ncol = 1, heights = c(1, 1))
-    pall
-  },height = 600, width = "auto")
+    p1
+  })
   
   # subtab 2.3: overall correlation heatmap
   output$time_bar1 <- renderUI({
