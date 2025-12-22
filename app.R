@@ -26,11 +26,11 @@ set.seed(825)
 
 #### Helper functions #### 
 
-source(here("helpers/Stress.R"))
-source(here("helpers/AdjacencyMat.R"))
-source(here("helpers/DynNet.R"))
-source(here("helpers/DynamicMDS.R"))
-source(here("helpers/SplinesMDS.R"))
+source(here("Code/Stress.R"))
+source(here("Code/AdjacencyMat.R"))
+source(here("Code/DynNet.R"))
+source(here("Code/DynamicMDS.R"))
+source(here("Code/SplinesMDS.R"))
 
 #### User interface ####
 
@@ -89,11 +89,13 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                          mainPanel(# summary for selected variable
                                    h3('Single variable summary'),
                                    plotOutput("sum_tb"),
+                                   # downloadButton("download_sum", "Download"),
                                    h4("Note:"),
                                    htmlOutput("sum_tb_note"),
                                    br(),
                                    h3("Missing pattern of each subject"),
                                    plotOutput("miss_plot"),
+                                   # downloadButton("download_miss"),
                                    h4("Note"),
                                    htmlOutput("miss_note"),
                                    br(),
@@ -236,7 +238,7 @@ server <- function(input, output) {
   })
   
   ## summary of single variables
-  output$sum_tb <- renderPlot({
+  plot_sum <- reactive({
     req(df(), input$select_var1, input$time_var, input$id_var)
     ### summary plot
     if(input$time_type=="Discrete"){
@@ -272,8 +274,17 @@ server <- function(input, output) {
              title = paste0("Distribution and temporal trend of ", input$select_var1))
     }
     plot_sum
+    })
+  output$sum_tb <- renderPlot({
+    plot_sum()
   })
-  ## missing plot
+  # output$download_sum <- downloadHandler(filename = function(){paste("data-", Sys.Date(), ".png", sep="")},
+  #                                        content = function(file){
+  #                                          png(file)
+  #                                          plot_sum()
+  #                                          dev.off()
+  #                                        })
+  # missing plot
   output$miss_plot <- renderPlot({
     req(df(), input$select_var1, input$time_var, input$id_var)
     # uni_id <- unique(df[ ,input$id_var])
@@ -512,6 +523,7 @@ server <- function(input, output) {
     mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
     # if(is.null(confirmed())){
       GetAdjMat(data= df_net(),
+                adj = "Correlation",
                 cor_method = input$cor_type,
                 mds_type = mds_type)
   })
@@ -692,11 +704,13 @@ server <- function(input, output) {
     req(df(), input$id_var, input$time_var)
     if(is.null(confirmed2())){
       int_adj_mat_list <- GetAdjMat(data= df() %>% select(!c(input$id_var)) %>% rename(time = input$time_var),
+                                    adj = "Correlation",
                 cor_method = input$cor_type,
                 mds_type = "Splines")
     }
     else{
       int_adj_mat_list <- GetAdjMat(data=df()[, c(input$time_var, confirmed2())] %>% rename(time = input$time_var),
+                                    adj = "Correlation",
                 cor_method = input$cor_type,
                 mds_type = "Splines")
     }
@@ -707,7 +721,7 @@ server <- function(input, output) {
   ## hierarchical clustering result
   int_hclust <- reactive({
     req(int_adj_mat())
-    validate(need(sum(is.na(int_adj_mat())) == 0, "Correlation cannot be calculated, likely due to empty or uniform columns."))
+    validate(need(sum(is.na(int_adj_mat())) == 0, "Correlation cannot be calculated, likely due to empty or uniform columns at each time points."))
     AveDis <- 1-int_adj_mat()
     hclust(dist(AveDis))
   })
@@ -720,7 +734,7 @@ server <- function(input, output) {
   output$int_net <- renderPlot({
     req(int_adj_mat(), int_hclust(), input$thres_cor2, int_coords())
     # checks
-    validate(need(sum(is.na(int_adj_mat())) == 0, "Correlation cannot be calculated, likely due to empty or uniform columns."))
+    validate(need(sum(is.na(int_adj_mat())) == 0, "Correlation cannot be calculated, likely due to empty or uniform variables at each time points."))
     # initialize graph
     int_adj <- int_adj_mat()
     int_adj[which(int_adj < input$thres_cor2)] <- 0
