@@ -307,6 +307,12 @@ server <- function(input, output) {
       group_by(time) %>%
       summarize(N = sum(is.na(var)), 
                 Pct = sum(is.na(var))/length(var))
+    colnames(df_miss) <- c(input$time_var, "N", "%")
+    datatable(df_miss,
+              caption = tags$caption(style = 'caption-side: top; text-align: center;',
+                                     'Number and precentage of missing observations at each time point. Time points with 
+                                     insufficient sample to calculate reliable correlation are highlighted.')) %>%
+      formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
   })
   ## notes for the boxplot
   output$sum_tb_note <- renderText({
