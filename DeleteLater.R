@@ -6,8 +6,32 @@ df <- read.csv("data/IFEDDemoData.csv")
 df_try <- df %>% 
   select(!ID) %>% 
   rename(time = Week)
+uni_val <- df_try %>% group_by(time) %>% summarize_all( ~{length(unique(.))}) %>% 
+  ungroup() %>% 
+  summarise(across(everything(), ~all(.x==1, na.tm = T))) %>% 
+  select(where(isTRUE))
+length((uni_val))
+colnames(uni_val)
+paste("Correlation cannot be calculated due to empty or uniform columns at each time points, including ", 
+      paste(c("Week", "Age"), collapse = ", "), ".", sep = "")
 
-adj_try <- GetAdjMat(df_try, adj = "Correlation", cor_method = "pearson", mds_type = "Dynamic")
+uni_col <- uni_val %>% select(-time) %>% sapply(function(x)sum(x<=1))
+warning_col <- uni_col[uni_col == length(unique(df_try$time))]
+length(names(warning_col)) == 0 
+length(warning_col)==0
+mat <- GetIntAdjMat(df_try)
+View(mat)
+adj_try <- GetAdjMat(df_try, adj = "Correlation", cor_method = "pearson", mds_type = "Splines")
+adj_try <- simplify2array(adj_try)
+dim(adj_try)
+tuniq <- sort(unique(df_try$time))
+wt <- c(diff(tuniq), 0) # what about the last time point?
+sum(wt)
+adj_ave <- apply(adj_try, c(1, 2), function(x){sum(wt*x, na.rm = F)/sum(wt)})
+adj_ave[1:5, 1:5]
+adj_try[1:5, 1:5, ]
+sum(wt*adj_try[1, 2, ])/sum(wt)
+mean(wt)
 
 lapply(adj_try, function(x)sum(is.na(x)))
 

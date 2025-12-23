@@ -28,7 +28,8 @@ set.seed(825)
 
 source(here("Code/Stress.R"))
 source(here("Code/AdjacencyMat.R"))
-source(here("Code/DynNet.R"))
+source(here("Code/IntAdjMat.R"))
+# source(here("Code/DynNet.R"))
 source(here("Code/DynamicMDS.R"))
 source(here("Code/SplinesMDS.R"))
 
@@ -175,6 +176,13 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                sliderInput(inputId = "thres_cor2", 
                            label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
                            ticks=FALSE),
+               # weight
+               checkboxInput("time_wt", label = "Weigh by time interval?", value = T),
+               tagList(
+                 icon("info-circle"),
+                 em("Correlation at each time point is weight by the interval between itself and the next time point. 
+                    It assumes the data structure stays unchanged until the next measurement point.")
+               ),
                # hierarchical grouping
                checkboxInput("hclust2", label = "Show groups", 
                              value = FALSE),
@@ -464,35 +472,25 @@ server <- function(input, output) {
   ## variable list
   output$varnames3 <- renderUI({
     req(df(), input$time_var, input$id_var)
-    checkboxGroupInput("select_var3", label = "Variables", 
-                       choices = colnames(df() %>% select(!c(input$time_var, input$id_var))))
+    all_vars <- colnames(df() %>% select(!c(input$time_var, input$id_var)))
+    checkboxGroupInput("select_var3", label = "Variables", choices = all_vars, select = all_vars)
   })
-  
   ## data set to analyze
   confirmed <- reactiveVal(NULL)
   observeEvent(input$confirm, {confirmed(input$select_var3)})
   df_net <- reactive({
-    req(df(), input$id_var, input$time_var)
-    if(is.null(confirmed())){
-      df_net <- df() %>% select(!c(input$id_var)) %>% 
-        rename(time = input$time_var) %>% 
-        filter(!if_all(!time, is.na))
-      exclude_time <- df_net %>% group_by(time) %>% summarize(nrow=n()) %>% filter(nrow<=2)
-      df_net %>% filter(!time %in% exclude_time$time)
-    }
-    else{
-      df_net <- df()[, c(input$time_var, confirmed())] %>%
-        rename(time = input$time_var) %>%
-        filter(!if_all(confirmed(), is.na))
-      exclude_time <- df_net %>% group_by(time) %>% summarize(nrow=n()) %>% filter(nrow<=2)
-      df_net %>% filter(!time %in% exclude_time$time)
-    }
+    req(df(), input$id_var, input$time_var, confirmed())
+    df_net <- df()[, c(input$time_var, confirmed())] %>%
+      rename(time = input$time_var) %>%
+      filter(!if_all(confirmed(), is.na)) # remove empty colums
+    exclude_time <- df_net %>% group_by(time) %>% summarize(nrow=n()) %>% filter(nrow<=2)
+    df_net %>% filter(!time %in% exclude_time$time)
   })
   ## time axis
   output$time_bar <- renderUI({
-    req(df_net(), input$time_type)
+    req(df(), input$time_type, input$time_var)
     # time bar: by the original time
-    tvec <- sort(unique(df_net()[, "time"]))
+    tvec <- sort(unique(df()[, input$time_var]))
    if(input$time_type=="Discrete"){
       time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
                       grid = TRUE)
@@ -502,9 +500,7 @@ server <- function(input, output) {
                                   grid = FALSE)
     }
     time_bar
-  }) # what if the time in the data set is not index but actual time (say, 0 to 1)?
-  
-  
+  })
   ## grouping results
   output$nclust <- renderUI({
     req(input$hclust)
@@ -516,59 +512,39 @@ server <- function(input, output) {
                                                                          "By variable" = 2,
                                                                          "Hierarchical tree" = 3))
   })
-
-  # calculate adjacency matrix at each time point
+  
+  # main panel outputs
+  ## calculate adjacency matrix at each time point
   adj_mat <- reactive({
     req(df_net(), input$time_type)
     mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
-    # if(is.null(confirmed())){
-      GetAdjMat(data= df_net(),
-                adj = "Correlation",
-                cor_method = input$cor_type,
-                mds_type = mds_type)
+    GetAdjMat(data= df_net(), adj = "Correlation", cor_method = input$cor_type, mds_type = mds_type)
   })
-  
-
-  # calculate graph
-  graph_list <- reactive({
-    req(adj_mat())
-    graph_dyn_net(adj_mat(), cor_th = input$thres_cor)
-  })
-
-  # calculated hierarchical groups
-  group_list <- reactive({
-    req(adj_mat())
-   lapply(adj_mat(),
-          function(x){
-            dis_mat <- 1-x
-            # remove fully unmeasured variable
-            var_id <- which(!is.na(diag(dis_mat)))
-            dis_mat <- dis_mat[var_id, var_id]
-            # remove pairs of variables whose dissimilarity cannot be computed
-            # because there is <2 complete pairs
-            dis_mat <- dis_mat[complete.cases(dis_mat), complete.cases(dis_mat)]
-            dis_mat <- as.dist(dis_mat)
-            hclust_fit <- hclust(dis_mat)
-            return(hclust_fit)
-                          })
-  })
-  
   ## calculate coordinates
   coord_list <- reactive({
-      req(adj_mat(), df_net(), input$time_type)
-      mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
-      t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
-      t_id <- seq_along(t_uniq) # time index
-        if(mds_type=="Splines"){
-          SplinesMDS(adj_mat(), lambda = 8, P = dim(adj_mat()[[1]])[1],
-                     tvec = t_uniq)
-        }
-        else{
-          DynamicMDS(adj_mat(), 5)
-        }
+    req(adj_mat(), df_net(), input$time_type)
+    mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
+    t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
+    t_id <- seq_along(t_uniq) # time index
+    if(mds_type=="Splines"){
+      SplinesMDS(adj_mat(), lambda = 8, P = dim(adj_mat()[[1]])[1], tvec = t_uniq)
+    }
+    else{
+      DynamicMDS(adj_mat(), 5)
+    }
   })
-
-  # plot
+  ## calculated hierarchical groups
+  group_list <- reactive({
+    req(input$hclust, df_net(), input$cor_type)
+    adj_mat <- GetAdjMat(data= df_net(), adj = "Correlation", cor_method = input$cor_type, mds_type = "Dynamic")
+    lapply(adj_mat, function(x){ 
+      dis_mat <- 1-x
+      dis_mat <- as.dist(dis_mat)
+      hclust_fit <- hclust(dis_mat)
+      return(hclust_fit)}
+      )
+  })
+  ## plot
   output$mds_note1 <- renderPrint({
     req(input$time_type)
     mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
@@ -588,37 +564,39 @@ server <- function(input, output) {
       withProgress(
         value=0, message = "Processing", detail="This may take a while...",
         {
-          req(adj_mat(), df_net(),  graph_list(), group_list(), coord_list())
+          req(adj_mat(), df_net(),  coord_list(), input$time_bar)
           t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
-          t_id <- seq_along(t_uniq) # time index
+          tid <- which(t_uniq==input$time_bar) # time index
           
-          input_tid <- which(t_uniq==input$time_bar)
-          graph_t <- graph_list()[[input_tid]]
-          group_t <- group_list()[[input_tid]]
-          coord_t <- coord_list()[[input_tid]]
-          
-          # color 
+          adj_t <- adj_mat()[[tid]]
+          adj_t[which(adj_t <= input$thres_cor)] <- 0 # thresholding edges
+          miss_node <- colnames(adj_t)[is.na(diag(adj_t))] # missing nodes
+          # graph_t <- graph_list()[[input_tid]]
+          coord_t <- coord_list()[[tid]]
+          net_t <- graph_from_adjacency_matrix(adj_t, mode = "undirected", weighted = T, diag=F)
+          # edges
+          E(net_t)$width <- E(net_t)$weight*5
+          # node properties
+          V(net_t)$color <- ifelse(!V(net_t)$name %in% miss_node, rgb(0.2, 0.4, 0.8, alpha=0.4), NA)
+          # color
           if(input$hclust){
+            group_t <- group_list()[[tid]]
             group_t <- cutree(group_t, k = input$nclust)
             group_c <- brewer.pal(input$nclust, "Accent")[group_t]
             names(group_c) <- names(group_t)
-            V(graph_t)$color <- group_c[V(graph_t)$name]
+            V(net_t)$color[!V(net_t)$name %in% miss_node] <- group_c[V(net_t)$name]
           }
-          
-    
-          # plot
-          # incProgress(0.5, detail = "Plotting")
-          plot(graph_t,
+          plot(net_t,
            layout = as.matrix(coord_t),
-           vertex.frame.color=ifelse(is.na(V(graph_t)$color), "grey", NA),
+           vertex.frame.color=ifelse(is.na(V(net_t)$color), "grey", NA),
            vertex.label.cex=1,
            vertex.size = 20, 
-           vertex.color = V(graph_t)$color, 
+           vertex.color = V(net_t)$color, 
            margin = 0)
-        
-        cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
-        if(any(cond)){warning(paste("Data showed perfect similarity at time", which(cond)))}
-        
+        # 
+        # cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
+        # if(any(cond)){warning(paste("Data showed perfect similarity at time", which(cond)))}
+        # 
     incProgress(1)}
     )
     })
@@ -689,8 +667,8 @@ server <- function(input, output) {
   ## sidebar variable list
   output$varnames4 <- renderUI({
     req(df(), input$time_var, input$id_var)
-    checkboxGroupInput("select_var4", label = "Variables", 
-                       choices = colnames(df() %>% select(!c(input$time_var, input$id_var))))
+    all_vars <- colnames(df() %>% select(!c(input$time_var, input$id_var)))
+    checkboxGroupInput("select_var4", label = "Variables", choices = all_vars, selected = all_vars)
   })
   confirmed2 <- reactiveVal(NULL)
   observeEvent(input$confirm2, {confirmed2(input$select_var4)})
@@ -699,55 +677,53 @@ server <- function(input, output) {
     req(input$hclust2)
     numericInput("nclust2", label = "Number of groups", value = 1)
   })
+  ## values for sanity checks: uniform or all missing across all time points
+  sanity_check2 <- reactive({
+    req(df(), input$id_var, input$time_var, input$select_var4, confirmed2())
+    unique_val <- df()[ , c(input$time_var, confirmed2())] %>%
+      rename(time = input$time_var) %>% group_by(time) %>%
+      summarize_all(~{length(unique(.))}) %>% ungroup() %>% 
+      summarise(across(everything(), ~all(.x==1, na.tm = T))) %>% 
+      select(where(isTRUE))
+    colnames(unique_val)
+  })
   # integral adjacency matrix
   int_adj_mat <- reactive({
-    req(df(), input$id_var, input$time_var)
-    if(is.null(confirmed2())){
-      int_adj_mat_list <- GetAdjMat(data= df() %>% select(!c(input$id_var)) %>% rename(time = input$time_var),
-                                    adj = "Correlation",
-                cor_method = input$cor_type,
-                mds_type = "Splines")
-    }
-    else{
-      int_adj_mat_list <- GetAdjMat(data=df()[, c(input$time_var, confirmed2())] %>% rename(time = input$time_var),
-                                    adj = "Correlation",
-                cor_method = input$cor_type,
-                mds_type = "Splines")
-    }
-    # integrate
-    AveAdj <- apply(simplify2array(int_adj_mat_list), c(1, 2), mean, na.rm = T)
-    AveAdj
-  })
-  ## hierarchical clustering result
-  int_hclust <- reactive({
-    req(int_adj_mat())
-    validate(need(sum(is.na(int_adj_mat())) == 0, "Correlation cannot be calculated, likely due to empty or uniform columns at each time points."))
-    AveDis <- 1-int_adj_mat()
-    hclust(dist(AveDis))
+    req(df(), input$id_var, input$time_var, input$select_var4, confirmed2())
+    validate(need(length(sanity_check2())==0,
+                  paste("Correlation cannot be calculated due to empty or uniform columns at each time points, including ", 
+                         paste(sanity_check2(), collapse = ", "), ".", sep = " ")))
+    ave_adj <- GetIntAdjMat(df=df()[ , c(input$time_var, confirmed2())] %>% rename(time=input$time_var),
+                            adj = "Correlation",
+                            cor_method = input$cor_type,
+                            weight = input$time_wt)
+    ave_adj
   })
   ## coordinates
   int_coords <- reactive({
     req(int_adj_mat())
     mds(int_adj_mat())$conf
   })
+  ## hierarchical clustering result
+  int_hclust <- reactive({
+    req(int_adj_mat(), input$hclust2)
+    validate(need(length(sanity_check2())==0,
+                  paste("Correlation cannot be calculated due to empty or uniform columns at each time points, including ", 
+                        paste(sanity_check2(), collapse = ", "), ".", sep = " ")))
+    AveDis <- 1-int_adj_mat()
+    hclust(dist(AveDis))
+  })
   ## network plot
   output$int_net <- renderPlot({
-    req(int_adj_mat(), int_hclust(), input$thres_cor2, int_coords())
-    # checks
-    validate(need(sum(is.na(int_adj_mat())) == 0, "Correlation cannot be calculated, likely due to empty or uniform variables at each time points."))
-    # initialize graph
+    req(int_adj_mat(), input$thres_cor2, int_coords())
     int_adj <- int_adj_mat()
     int_adj[which(int_adj < input$thres_cor2)] <- 0
-    int_net <- graph_from_adjacency_matrix(int_adj,
-                                         mode = "undirected", weighted = T, diag=F)
-
+    int_net <- graph_from_adjacency_matrix(int_adj, mode = "undirected", weighted = T, diag=F)
     # edges
     E(int_net)$width <- E(int_net)$weight*5
-
     # node properties
     V(int_net)$color <- rgb(0.2, 0.4, 0.8, alpha=0.4)
     coords <- mds(int_adj_mat())$conf
-
     # if choose to visualize grouping results
     if(input$hclust2){
       clust_group <- cutree(int_hclust(), k = input$nclust2)
@@ -755,7 +731,6 @@ server <- function(input, output) {
       names(vcolor) <- names(clust_group)
       V(int_net)$color <- vcolor[V(int_net)$name]
     }
-
     plot(int_net, layout=int_coords(),
            vertex.color =  V(int_net)$color, 
            vertex.frame.color=  V(int_net)$color,
@@ -771,7 +746,8 @@ server <- function(input, output) {
   ## note
   output$int_note <- renderPrint({
     req(input$hclust2)
-    HTML(paste0("Both plots are generated based on the integerated ", input$cor_type, " correlation matrix. To change the type of correlation, please move back to the second tab."))
+    HTML(paste0("Both plots are generated based on the integerated ", input$cor_type, 
+                " correlation matrix. To change the type of correlation, please move back to the second tab."))
   })
   
 }
