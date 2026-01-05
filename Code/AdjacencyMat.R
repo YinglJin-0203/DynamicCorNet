@@ -8,22 +8,28 @@
 GetAdjMat <- function(data, adj = "Correlation", cor_method = "pearson", mds_type="Spline"){
   
   # dissimilarity
-  if(adj=="Correlation"){
-    cor_mat <- data %>% 
-      group_by(time) %>%
-      group_map(~{cor(.x, method = cor_method, use = "pairwise.complete.obs")})
-    adj_mat <- lapply(cor_mat, abs)
-  }
-  if(adj=="Distance"){
-    # dist_mat <- data %>%
-    #   group_by(time) %>%
-    #   mutate_at(vars(!time), scale, center = T, scale = T) %>% 
-    #   group_map(~{fields::rdist(.x, method = cor_method, use = "pairwise.complete.obs")})
-    
-  }
+  # if(adj=="Correlation"){
+  #   cor_mat <- data %>% 
+  #     group_by(time) %>%
+  #     group_map(~{cor(.x %>% select(where(~ !all(is.na(.)))), 
+  #                     method = cor_method, use = "pairwise.complete.obs")})
+  #   adj_mat <- lapply(cor_mat, abs)
+  # }
+  # if(adj=="Distance"){
+  #   # dist_mat <- data %>%
+  #   #   group_by(time) %>%
+  #   #   mutate_at(vars(!time), scale, center = T, scale = T) %>% 
+  #   #   group_map(~{fields::rdist(.x, method = cor_method, use = "pairwise.complete.obs")})
+  #   
+  # }
   
   # Dynamic MDS: remove NA
   if(mds_type=="Dynamic"){
+    cor_mat <- data %>% 
+      group_by(time) %>%
+      group_map(~{cor(.x %>% select(where(~ !all(is.na(.)))), 
+                      method = cor_method, use = "pairwise.complete.obs")})
+    adj_mat <- lapply(cor_mat, abs)
     adj_mat <- lapply(adj_mat, function(m){
       m[upper.tri(m)] <- 0
       keep_id <- rowSums(is.na(m))==0
@@ -31,6 +37,13 @@ GetAdjMat <- function(data, adj = "Correlation", cor_method = "pearson", mds_typ
       mat <- mat+t(mat)
       return(mat)
     })
+  }
+  else{
+    cor_mat <- data %>% 
+      group_by(time) %>%
+      group_map(~{cor(.x, 
+                      method = cor_method, use = "pairwise.complete.obs")})
+    adj_mat <- lapply(cor_mat, abs)
   }
   
   return(adj_mat)

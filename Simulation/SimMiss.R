@@ -29,7 +29,7 @@ N <- 100 # sample size
 
 #### varying scalar: measure density ####
 # nt <- 10
-nt <- 10
+nt <- 100
 tvec <- seq(0, 1, length.out = nt)
 
 #### Generate data ####
@@ -104,10 +104,16 @@ df_sim_temp2 <- bind_rows(df_sim_temp2)
 # save data
 # saveRDS(df_sim_temp2, file = paste0("data/SimData/df_sim_temp2_t", nt, ".rds"))
 
+##### introduce irregular missing #####
+
+# group 1 random missing at 1/2 of the time
+
+t_miss <- sample(tvec, size = nt*0.5, replace = F)
+df_sim_temp2[df_sim_temp2$time %in% t_miss, paste0("X", 1:5)] <- NA
+
 #### Calculated coordinates ####
 
 ##### Dynamic MDS #####
-
 
 # step 1: adjacency matrix
 adj_mat1 <- GetAdjMat(df_sim_temp2 %>% dplyr::select(-id), mds_type = "Dynamic")
@@ -115,7 +121,7 @@ lapply(adj_mat1, dim)
 
 # step 2: calculate layout
 time1 <- system.time({
-# prof1 <- profvis::profvis({
+  # prof1 <- profvis::profvis({
   coord_list1 <- DynamicMDS(adj_mat1, lambda = 10)
 })
 # prof1 # time: 16370 when nt = 10; 
@@ -127,10 +133,11 @@ lapply(adj_mat2, dim)
 
 # step 2: calculate layout
 time2 <- system.time({
-# prof2 <- profvis::profvis({
+  # prof2 <- profvis::profvis({
   coord_list2 <- SplinesMDS(adj_mat2, lambda = 7, P = 15, tvec = tvec)
 })
 # prof2 # time: 26350
+
 
 #### Output ####
 
@@ -143,26 +150,21 @@ library(magick)
 library(tidyverse)
 theme_set(theme_minimal())
 
-## initialize 
-initg <- make_empty_graph(n = P, directed = FALSE)
-
-## plot
-tvec[c(1, 6, 10)]
-
-for(t in c(1, 6, 10)){
+for(t in c(1, 51, 100)){
   
-  graph_t <- initg
   coord_t1 <- coord_list1[[t]] # dynamic
   coord_t2 <- coord_list2[[t]] # splines
   
-  V(graph_t)$color <- color_vec[rep(1:3, each = 5)] # color by true group
-  if(tvec[t] %in% t_miss){
-    V(graph_t)$color[1:5] <- NA
-    coord_t1 <- rbind(matrix(NA, nrow=5, ncol=2), coord_t1)
-    } # for missing variables
-  
   # plot dynamic
-  pic1 <- paste0("images/SimFigures/DynMDS_t", t, ".jpeg")
+  graph_t <- make_empty_graph(n = nrow(coord_t1), directed = FALSE)
+  if(tvec[t] %in% t_miss){
+    V(graph_t)$color <- color_vec[rep(2:3, each = 5)] # color by true group
+    V(graph_t)$label = 6:15
+  } else {
+    V(graph_t)$color <- color_vec[rep(1:3, each = 5)] # color by true group
+    V(graph_t)$label = 1:15
+    }
+  pic1 <- paste0("images/SimFigures/DynMDS_miss2_t", t, ".jpeg")
   jpeg(filename = pic1, height = 500, width = 500)
   plot(graph_t,
        layout = as.matrix(coord_t1),
@@ -176,7 +178,13 @@ for(t in c(1, 6, 10)){
   # fig_list1[[t]] <- image_read(pic1)
   
   # plot spline
-  pic2 <- paste0("images/SimFigures/SplMDS_", t, ".jpeg")
+  graph_t <- make_empty_graph(n = P, directed = FALSE)
+  V(graph_t)$color <- color_vec[rep(1:3, each = 5)] # color by true group
+  V(graph_t)$label = 1:15
+  if(tvec[t] %in% t_miss){
+    V(graph_t)$color[1:5] <- NA # color by true group
+  }
+  pic2 <- paste0("images/SimFigures/SplMDS_miss2_", t, ".jpeg")
   jpeg(filename = pic2, height = 500, width = 500)
   plot(graph_t,
        layout = as.matrix(coord_t2),
@@ -188,16 +196,3 @@ for(t in c(1, 6, 10)){
   dev.off()
   # fig_list2[[t]] <- image_read(pic2)
 }
-
-# anime1 <- image_animate(image_join(fig_list1), delay = 200)
-# anime2 <- image_animate(image_join(fig_list2), delay = 200)
-# 
-# # Save to file
-# image_write(anime1, path = "Figure/SimTemp/DynMDS.gif")
-# image_write(anime2, path = "Figure/SimTemp/SplMDS.gif")
-
-
-
-
-
-# network figures

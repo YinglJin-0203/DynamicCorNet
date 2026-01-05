@@ -2,7 +2,7 @@
 
 #' Calculate stress at one time point
 #'
-#' @param t 
+#' @param t current time index
 #' @param xi1 
 #' @param xi2 
 #' @param diss_t P by P matrix, disimilarity list at time t
@@ -54,10 +54,10 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
 # xi_vec <- rnorm(P*K*2)
 # xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
 # xi2 = matrix(xi_vec[(P*K+1): (P*K*2)], nrow = P)
-SplMDS_stress_t(9, xi1, xi2,
-                diss_t = dis_mat[[9]],
-                init_coord = init_coord, lambda = 7,
-                Xmat = Xmat, Xmat2dev = Xmat2dev)
+# SplMDS_stress_t(9, xi1, xi2,
+#                 diss_t = dis_mat[[9]],
+#                 init_coord = init_coord, lambda = 7,
+#                 Xmat = Xmat, Xmat2dev = Xmat2dev)
 
 ##### Over all stress #####
 
