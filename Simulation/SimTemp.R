@@ -11,11 +11,12 @@ library(splines2)
 library(mgcv)
 
 # function to simulate dataset
-source(here("helpers/SimGroupT.R"))
+source(here("Code/SimGroupT.R"))
 
 # functions to generate graph
-source(here("helpers/AdjacencyMat.R"))
+source(here("Code/AdjacencyMat.R"))
 source(here("helpers/DynamicMDS.R"))
+source(here("Code/Helpers/SplMDSHelpers.R"))
 source(here("helpers/SplinesMDS.R"))
 
 
@@ -29,7 +30,7 @@ N <- 100 # sample size
 # K <- commandArgs(trailingOnly = TRUE)
 # K <- as.numeric(K)
 # nt <- 10+10*(K-1)
-nt <- 50
+nt <- 10
 tvec <- seq(0, 1, length.out = nt)
 
 #### Generate data ####
