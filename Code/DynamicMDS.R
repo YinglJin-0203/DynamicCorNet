@@ -11,7 +11,8 @@ DynamicMDS <- function(adj_mat, lambda=10){
   
   # dissimilarity matrix
   # package WGCNA doesn't work. I need to write my own TOM function later
-  dis_mat <- lapply(adj_mat, function(x){1-x})
+  # dis_mat <- lapply(adj_mat, function(x){1-x})
+  dis_mat <- adj_mat
   
   # key scalars
   P <- sapply(adj_mat, ncol)

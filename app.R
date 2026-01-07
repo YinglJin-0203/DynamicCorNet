@@ -18,6 +18,7 @@ library(splines2)
 library(RColorBrewer)
 library(ggalluvial)
 library(ggdendro)
+library(mgcv)
 
 theme_set(theme_minimal())
 
@@ -27,10 +28,12 @@ set.seed(825)
 #### Helper functions #### 
 
 source(here("Code/Stress.R"))
-source(here("Code/AdjacencyMat.R"))
+source(here("Code/DynDissmMat.R"))
+source(here("Code/SplDissmMat.R"))
 source(here("Code/IntAdjMat.R"))
-# source(here("Code/DynNet.R"))
+source(here("Code/Helpers/DynMDSHelpers.R"))
 source(here("Code/DynamicMDS.R"))
+source(here("Code/Helpers/SplMDSHelpers.R"))
 source(here("Code/SplinesMDS.R"))
 
 #### User interface ####
@@ -305,7 +308,7 @@ server <- function(input, output) {
        pivot_wider(id_cols = "id", names_from = "time", values_from = "var") %>%
        select(-id) %>%
        visdat::vis_miss(.)+
-       labs(x=paste0(input$time_var, " (% missing)"), y = "ID")
+       labs(x=paste0(input$time_var, " (% present)"), y = "ID")
    } else{
      df_miss %>% ggplot()+
        geom_tile(aes(x=time, y=id, fill = is.na(var)))+
@@ -329,8 +332,7 @@ server <- function(input, output) {
     colnames(df_miss) <- c(input$time_var, "N", "%")
     datatable(df_miss,
               caption = tags$caption(style = 'caption-side: top; text-align: center;',
-                                     'Number and precentage of missing observations at each time point. Time points with 
-                                     insufficient sample to calculate reliable correlation are highlighted.')) %>%
+                                     'Number and precentage of missing observations at each time point.')) %>%
       formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
   })
   ## notes for the boxplot
