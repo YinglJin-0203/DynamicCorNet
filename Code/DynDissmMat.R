@@ -40,8 +40,10 @@ DynDissimMat <- function(data, method = "spearman"){
   return(dis_mat)
 }
 
-# test <- DynDissimMat(df %>% select(-ID) %>% rename(time=Week),
-#                      method = "spearman")
+
+df <- read.csv("Data/IFEDDemoData.csv")
+df <- df %>% rename(time=Week) %>% select(-ID, -Age.at.exam)
+test <- DynDissimMat(df, method = "euclidean")
 # lapply(test, function(x)(sum(is.na(x))))
 # lapply(test, dim)
 # View(test[[12]])

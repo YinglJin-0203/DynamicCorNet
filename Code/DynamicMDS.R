@@ -1,28 +1,24 @@
 #' Calculate temporal network layout with dynamic multidimensional scaling
 #'
-#' @param adj_mat 
-#' @param lambda 
+#' @param dis_mat: dissimilarity matrix
+#' @param lambda: penalization parameter
 #'
 #' @returns
 #' @export
 #'
 #' @examples
-DynamicMDS <- function(adj_mat, lambda=10){
+DynamicMDS <- function(dis_mat, lambda=5){
   
   # dissimilarity matrix
-  # package WGCNA doesn't work. I need to write my own TOM function later
-  # dis_mat <- lapply(adj_mat, function(x){1-x})
-  dis_mat <- adj_mat
-  
   # key scalars
-  P <- sapply(adj_mat, ncol)
-  Tmax <- length(adj_mat)
+  P <- sapply(dis_mat, ncol)
+  Tmax <- length(dis_mat)
   
   # initialization
   init_coord <- list()
   for(t in 1:Tmax){
     if(dim(dis_mat[[t]])[1]>2){
-      init_coord[[t]] <- smacofSym(dis_mat[[t]], ndim = 2)$conf
+      init_coord[[t]] <- mds(dis_mat[[t]], ndim = 2)$conf
     }
     else{
       init_coord[[t]] <- matrix(rnorm(dim(dis_mat[[t]])[1]*2), ncol = 2)
@@ -48,5 +44,7 @@ DynamicMDS <- function(adj_mat, lambda=10){
   return(coords)
 } 
 
+# test
+DynamicMDS(test, 6)
 
 

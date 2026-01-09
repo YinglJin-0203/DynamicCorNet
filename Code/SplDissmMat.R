@@ -31,8 +31,7 @@ SplDissimMat <- function(data, method = "spearman"){
   return(dis_mat)
 }
 
-test <- SplDissimMat(df %>% select(-ID) %>% rename(time=Week),
-                     method = "euclidean")
-lapply(test, function(x)(sum(is.na(x))))
-lapply(test, dim)
-View(test[[12]])
+# test <- SplDissimMat(df, method = "euclidean")
+# lapply(test, function(x)(sum(is.na(x))))
+# lapply(test, dim)
+# View(test[[12]])

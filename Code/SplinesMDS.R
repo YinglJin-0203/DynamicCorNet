@@ -21,13 +21,9 @@
 #' @export
 #'
 #' @examples
-SplinesMDS <- function(adj_mat, lambda, P, tvec){
+SplinesMDS <- function(dis_mat, lambda, P, tvec){
   
   tid <- seq_along(tvec) # time index
-  
-  # dissimilarity matrix
-  # package WGCNA doesn't work. I need to write my own TOM function later
-  dis_mat <- lapply(adj_mat, function(x){1-x})
   
   # initial layout at the first time slice
   # variables missing at the first slice: random position
@@ -60,16 +56,16 @@ SplinesMDS <- function(adj_mat, lambda, P, tvec){
     method = "BFGS", control = list(maxit=500),
     Xmat = Xmat, Xmat2dev = Xmat2dev)
   
-  # calculate coordinates
+  # output coefficients and design matrix
   xi1 <- matrix(final_xi_vec$par[1: (P*K)], nrow = P)
   xi2 <- matrix(final_xi_vec$par[(P*K+1): (P*K*2)], nrow = P)
   
+  coefs <- list(xi1, xi2, Xmat)
   # Xmat <- bs(tid, df = 20)
-  c1 <- init_coord[,1] + xi1 %*% t(Xmat)
-  c2 <- init_coord[,2] + xi2 %*% t(Xmat)
+  # c1 <- init_coord[,1] + xi1 %*% t(Xmat)
+  # c2 <- init_coord[,2] + xi2 %*% t(Xmat)
+  # coords <- lapply(tid, function(x){return(data.frame(c1 = c1[ , x], 
+  #                                                     c2 = c2[ , x]))})
   
-  coords <- lapply(tid, function(x){return(data.frame(c1 = c1[ , x], 
-                                                      c2 = c2[ , x]))})
-  
-  return(coords)
+  return(coefs)
 }

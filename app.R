@@ -28,13 +28,16 @@ set.seed(825)
 #### Helper functions #### 
 
 source(here("Code/Stress.R"))
+
 source(here("Code/DynDissmMat.R"))
-source(here("Code/SplDissmMat.R"))
-source(here("Code/IntAdjMat.R"))
 source(here("Code/Helpers/DynMDSHelpers.R"))
 source(here("Code/DynamicMDS.R"))
+
+source(here("Code/SplDissmMat.R"))
 source(here("Code/Helpers/SplMDSHelpers.R"))
 source(here("Code/SplinesMDS.R"))
+
+source(here("Code/IntAdjMat.R"))
 
 #### User interface ####
 
