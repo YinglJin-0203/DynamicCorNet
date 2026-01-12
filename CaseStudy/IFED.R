@@ -92,11 +92,13 @@ image_write(DynMDS_edist_ultra, path = "images/CaseStudy/DynMDS_edist_ultra.gif"
 
 #### Splines MDS ####
 
-df <- read.csv("Data/IFEDDemoData.csv")
-df <- df %>% select(-ID, -Length, -Weight.for.age, -Height.for.age, 
+df_org <- read.csv("Data/IFEDDemoData.csv")
+df <- df_org %>% select(-ID, -Length, -Weight.for.age, -Height.for.age, 
                     -Weight.for.height, -Length, -Bud.bead.diameter,
                     -Week) %>% 
   rename(time=Age.at.exam)
+
+tuniq <- sort(unique(df$time))
 
 source(here("Code/SplDissmMat.R"))
 source(here("Code/Helpers/SplMDSHelpers.R"))
@@ -108,7 +110,81 @@ dim(dist_mats[[1]])
 
 # coordinates
 system.time({
-  coords <- SplinesMDS(dist_mats, 7, 12, tuniq)
+  coords <- SplinesMDS(dist_mats, lambda = 7, P = 12, tvec = tuniq)
 })
 
 save(coords, file = "CaseStudy/Splcoords.RData")
+
+# graph
+load("CaseStudy/Splcoords.RData")
+## coeeficients
+xi1 <- coords$xi1
+xi2 <- coords$xi2
+init_coords <- coords$init_coord
+  
+  # c1 <- init_coord[,1] + xi1 %*% t(Xmat)
+  # c2 <- init_coord[,2] + xi2 %*% t(Xmat)
+  # coords <- lapply(tid, function(x){return(data.frame(c1 = c1[ , x], 
+  #                                                     c2 = c2[ , x]))})
+
+tuniq <- sort(unique(df$time))
+tmin <- min(tuniq)
+tmax <- max(tuniq)
+tid <- tmin:tmax
+fig_list <- list()
+varnames <- colnames(df %>% select(-time))
+P <- 12
+K <- ncol(xi1)
+Xmat <- bSpline(tmin:tmax, 
+                df = K,
+                degree = 2, derivs = 0)
+
+
+# find the median of days at each week
+tid <- df_org %>% select(Week, Age.at.exam) %>% 
+  group_by(Week) %>%
+  summarise_at("Age.at.exam", median) %>% select(Age.at.exam) %>% unlist()
+
+for(t in 1:length(tid)){
+  
+  # number of non-missing variables
+  graph_t <- make_empty_graph(n = P, directed = FALSE)
+  V(graph_t)$label <- varnames
+  # coord_t <- cbind(init_coords[, 1] + xi1 %*% Xmat[t,],
+  #                  init_coords[, 2] + xi2 %*% Xmat[t,]
+  #                  )
+  coord_t <- cbind(init_coords[, 1] + xi1 %*% Xmat[tid[t],],
+                   init_coords[, 2] + xi2 %*% Xmat[tid[t],]
+  )
+  rownames(coord_t) <- varnames
+  
+  if(tid[t] %in% tuniq){
+    NAcols <- df %>% filter(time == tid[t]) %>% select(-time) %>%
+      select(where(~ all(is.na(.)))) %>% colnames()
+    frame_color <- ifelse(V(graph_t)$label %in% NAcols, "grey", NA)
+    fille_color <- ifelse(V(graph_t)$label %in% NAcols, NA, "grey")
+
+  } else {
+    frame_color <- "grey"
+    fille_color <- NA
+  }
+    
+  # plot dynamic
+  pic1 <- paste0("images/CaseStudy/SplMDS_edist_day", tid[t], ".jpeg")
+  # pic1 <- paste0("images/CaseStudy/temp.jpeg")
+  jpeg(filename = pic1, height = 500, width = 500)
+  plot(graph_t,
+       layout = coord_t,
+       vertex.frame.color=frame_color,
+       vertex.color=fille_color,
+       vertex.label.cex=1,
+       vertex.size = 20, 
+       # vertex.color = V(graph_t)$color, 
+       margin = 0, main = paste0("Splines, day ", tid[t]))
+  dev.off()
+  fig_list[[t]] <- image_read(pic1)
+  
+}
+
+spl_edist_all <- image_animate(image_join(fig_list), fps = 1)
+image_write(spl_edist_all, path = "images/CaseStudy/SplMDS_edist_all.gif")

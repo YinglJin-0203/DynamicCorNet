@@ -148,6 +148,8 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              # side bar
              sidebarPanel(
                # choose correlation threshold
+               selectInput("cor_type", label="Type of correlation/association", 
+                           choices = list("pearson", "spearman", "euclidean")),
                sliderInput(inputId = "thres_cor", label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
                            ticks=FALSE),
                # time bar
@@ -292,12 +294,6 @@ server <- function(input, output) {
   output$sum_tb <- renderPlot({
     plot_sum()
   })
-  # output$download_sum <- downloadHandler(filename = function(){paste("data-", Sys.Date(), ".png", sep="")},
-  #                                        content = function(file){
-  #                                          png(file)
-  #                                          plot_sum()
-  #                                          dev.off()
-  #                                        })
   # missing plot
   output$miss_plot <- renderPlot({
     req(df(), input$select_var1, input$time_var, input$id_var)
@@ -391,10 +387,10 @@ server <- function(input, output) {
     p2 <- df_cor %>% 
       filter(complete.cases(.)) %>%
       ggplot()+
-      geom_point(aes(x=time, y=cor, color = Npair, size = Npair))+
+      geom_point(aes(x=time, y=cor, alpha = Npair, size = Npair))+
       geom_line(aes(x=time, y=cor))+
       labs(title = "Empirical correlation", x = input$time_var, y = " ",
-           color = "% of complete pairs", size = "% of complete pairs")+
+           alpha = "% of complete pairs", size = "% of complete pairs")+
       theme(legend.position = "bottom")+
       guides(color = guide_legend(order = 1), 
              size = guide_legend(order = 1))
@@ -501,8 +497,10 @@ server <- function(input, output) {
                       grid = TRUE)
     }
     else{
-      time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
-                                  grid = FALSE)
+      time_bar <- sliderInput("time_bar", label = input$time_var,
+                              min = min(tvec), max = max(tvec),
+                              step = min(diff(tvec)),
+                              ticks = FALSE)
     }
     time_bar
   })
@@ -520,7 +518,7 @@ server <- function(input, output) {
   
   # main panel outputs
   ## calculate adjacency matrix at each time point
-  adj_mat <- reactive({
+  diss_mat <- reactive({
     req(df_net(), input$time_type)
     mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
     GetAdjMat(data= df_net(), adj = "Correlation", cor_method = input$cor_type, mds_type = mds_type)

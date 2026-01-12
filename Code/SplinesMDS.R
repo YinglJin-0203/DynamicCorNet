@@ -60,7 +60,9 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec){
   xi1 <- matrix(final_xi_vec$par[1: (P*K)], nrow = P)
   xi2 <- matrix(final_xi_vec$par[(P*K+1): (P*K*2)], nrow = P)
   
-  coefs <- list(xi1, xi2, Xmat)
+  coefs <- list(init_coord = init_coord, 
+                xi1 = xi1, 
+                xi2 = xi2)
   # Xmat <- bs(tid, df = 20)
   # c1 <- init_coord[,1] + xi1 %*% t(Xmat)
   # c2 <- init_coord[,2] + xi2 %*% t(Xmat)
