@@ -44,7 +44,4 @@ DynamicMDS <- function(dis_mat, lambda=5){
   return(coords)
 } 
 
-# test
-DynamicMDS(test, 6)
-
 
