@@ -34,18 +34,19 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec){
   
   # spline basis 
   ## knots
-  if(length(tvec) < 32){
-    internal_knot <- tvec[-c(1, length(tvec))]
-  } else{
-    internal_knot <- seq(min(tvec), max(tvec), length.out = 32)
-    internal_knot <- internal_knot[-c(1, 32)]
-  }
+  # if(length(tvec) < 32){
+  #   internal_knot <- tvec[-c(1, length(tvec))]
+  # } else{
+  #   internal_knot <- seq(min(tvec), max(tvec), length.out = 32)
+  #   internal_knot <- internal_knot[-c(1, 32)]
+  # }
   # design matrix
-  Xmat <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 0, Boundary.knots = range(tvec))
-  Xmat2dev <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 2, Boundary.knots = range(tvec))
+  # Xmat <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 0, Boundary.knots = range(tvec))
+  # Xmat2dev <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 2, Boundary.knots = range(tvec))
+  # K <- ncol(Xmat)
+  Xmat <- bSpline(tvec, df = 5, degree = 3, derivs = 0, Boundary.knots = range(tvec))
+  Xmat2dev <- bSpline(tvec, df = 5, degree = 3, derivs = 2, Boundary.knots = range(tvec))
   K <- ncol(Xmat)
-  # Xmat <- mSpline(tvec, df = K, degree = 2, derivs = 0)
-  # Xmat2dev <- mSpline(tvec, df = K, degree = 2, derivs = 2)
   
   # Optimize with regard to 
   final_xi_vec <- optim(

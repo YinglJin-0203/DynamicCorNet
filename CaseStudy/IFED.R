@@ -37,7 +37,7 @@ source(here("Code/Helpers/DynMDSHelpers.R"))
 source(here("Code/DynamicMDS.R"))
 
 # dissmilarity matrix
-dist_mats <- DynDissimMat(df, method = "spearman")
+dist_mats <- DynDissimMat(df, method = "euclidean")
 
 # coordinates
 system.time({
@@ -57,7 +57,7 @@ for(t in seq_along(tuniq)){
   
   # plot dynamic
   # pic1 <- paste0("images/CaseStudy/DynMDS_edist_week", tuniq[t], ".jpeg")
-  pic1 <- paste0("images/CaseStudy/DynMDS_spearman_week", tuniq[t], ".jpeg")
+  pic1 <- paste0("images/CaseStudy/DynMDS_euclidean_week", tuniq[t], ".jpeg")
   jpeg(filename = pic1, height = 500, width = 500)
   plot(graph_t,
        layout = as.matrix(coord_t),
@@ -66,18 +66,18 @@ for(t in seq_along(tuniq)){
        vertex.label.cex=1,
        vertex.size = 20, 
        # vertex.color = V(graph_t)$color, 
-       margin = 0, main = paste0("Dynamic, Spearman, week ", tuniq[t]))
+       margin = 0, main = paste0("Dynamic, Euclidean, week ", tuniq[t]))
   dev.off()
   fig_list[[t]] <- image_read(pic1)
   
 }
 
 # save graphs
-DynMDS_spearman_all <- image_animate(image_join(fig_list), fps = 1)
+DynMDS_educlidean_all <- image_animate(image_join(fig_list), fps = 1)
 # DynMDS_edist_noultra <- image_animate(image_join(fig_list[c(1, 2, 4, 6, 8, 12)]), fps = 1)
 # DynMDS_edist_ultra <- image_animate(image_join(fig_list[c(3, 5, 7, 9:11)]), fps = 1)
 
-image_write(DynMDS_spearman_all, path = "images/CaseStudy/DynMDS_spearman_all.gif")
+image_write(DynMDS_educlidean_all, path = "images/CaseStudy/DynMDS_euclidean_all.gif")
 # image_write(DynMDS_edist_noultra, path = "images/CaseStudy/DynMDS_edist_noultra.gif")
 # image_write(DynMDS_edist_ultra, path = "images/CaseStudy/DynMDS_edist_ultra.gif")
 
@@ -98,14 +98,15 @@ source(here("Code/SplinesMDS.R"))
 
 # dissmilarity matrix
 dist_mats <- SplDissimMat(df, method = "euclidean")
+warnings()
 dim(dist_mats[[1]])
 
 # coordinates
 system.time({
-  coords <- SplinesMDS(dist_mats, lambda = 7, P = 12, tvec = tuniq)
+  coords <- SplinesMDS(dist_mats, lambda = 5, P = 12, tvec = tuniq)
 })
 
-save(coords, file = "CaseStudy/Splcoords.RData")
+save(coords, file = "CaseStudy/Splcoords_euclidean.RData")
 
 # graph
 load("CaseStudy/Splcoords.RData")

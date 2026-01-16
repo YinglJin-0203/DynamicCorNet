@@ -19,6 +19,7 @@ library(RColorBrewer)
 library(ggalluvial)
 library(ggdendro)
 library(mgcv)
+library(igraph)
 
 theme_set(theme_minimal())
 
@@ -62,7 +63,8 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                br(), br(),
                # specify subject ID and time
                uiOutput("time_var"),
-               uiOutput("id_var")
+               uiOutput("id_var"),
+               width = 3
              ),
                
              
@@ -104,9 +106,10 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                                    plotOutput("miss_plot"),
                                    # downloadButton("download_miss"),
                                    h4("Note"),
+                                   h3("N (%) of missing observations"),
                                    htmlOutput("miss_note"),
                                    br(),
-                                   dataTableOutput("miss_npct_tb"))
+                                   dataTableOutput("miss_npct_tb", width = "70%"))
               )),
               ## subtab 2.2: pairwise
               tabPanel(title = "Pairwise",
@@ -148,10 +151,11 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              # side bar
              sidebarPanel(
                # choose correlation threshold
-               selectInput("cor_type", label="Type of correlation/association", 
+               selectInput("mtype", label="Type of correlation/association", 
                            choices = list("pearson", "spearman", "euclidean")),
-               sliderInput(inputId = "thres_cor", label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
-                           ticks=FALSE),
+               uiOutput("thres_m"),
+               # sliderInput(inputId = "thres_cor", label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
+               #             ticks=FALSE),
                # time bar
                uiOutput("time_bar"),
                # hierarchical grouping
@@ -329,9 +333,7 @@ server <- function(input, output) {
       summarize(N = sum(is.na(var)), 
                 Pct = sum(is.na(var))/length(var))
     colnames(df_miss) <- c(input$time_var, "N", "%")
-    datatable(df_miss,
-              caption = tags$caption(style = 'caption-side: top; text-align: center;',
-                                     'Number and precentage of missing observations at each time point.')) %>%
+    datatable(df_miss) %>%
       formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
   })
   ## notes for the boxplot
@@ -387,7 +389,7 @@ server <- function(input, output) {
     p2 <- df_cor %>% 
       filter(complete.cases(.)) %>%
       ggplot()+
-      geom_point(aes(x=time, y=cor, alpha = Npair, size = Npair))+
+      geom_point(aes(x=time, y=cor, size = Npair))+
       geom_line(aes(x=time, y=cor))+
       labs(title = "Empirical correlation", x = input$time_var, y = " ",
            alpha = "% of complete pairs", size = "% of complete pairs")+
@@ -476,6 +478,18 @@ server <- function(input, output) {
     all_vars <- colnames(df() %>% select(!c(input$time_var, input$id_var)))
     checkboxGroupInput("select_var3", label = "Variables", choices = all_vars, select = all_vars)
   })
+  ## threshold
+  output$thres_m <- renderUI({
+    req(input$mtype)
+    if(input$mtype == "euclidean"){
+      diss_range <- round(range(unlist(diss_mat())))
+      sliderInput("thres_m", label = "Show distance below",
+                  min = diss_range[1], max = diss_range[2], value = diss_range[1])
+    } else {
+      sliderInput("thres_m", label = "Show correlation above",
+                  min =0, max = 1, value = 1)
+    }
+  })
   ## data set to analyze
   confirmed <- reactiveVal(NULL)
   observeEvent(input$confirm, {confirmed(input$select_var3)})
@@ -483,23 +497,21 @@ server <- function(input, output) {
     req(df(), input$id_var, input$time_var, confirmed())
     df_net <- df()[, c(input$time_var, confirmed())] %>%
       rename(time = input$time_var) %>%
-      filter(!if_all(confirmed(), is.na)) # remove empty colums
-    exclude_time <- df_net %>% group_by(time) %>% summarize(nrow=n()) %>% filter(nrow<=2)
-    df_net %>% filter(!time %in% exclude_time$time)
+      filter(!if_all(confirmed(), is.na)) # remove empty columns
+    # exclude_time <- df_net %>% group_by(time) %>% summarize(nrow=n()) %>% filter(nrow<=2)
+    # df_net %>% filter(!time %in% exclude_time$time)
   })
   ## time axis
   output$time_bar <- renderUI({
-    req(df(), input$time_type, input$time_var)
+    req(df_net(), input$time_type, input$time_var)
     # time bar: by the original time
-    tvec <- sort(unique(df()[, input$time_var]))
+    tvec <- sort(unique(df_net()[, "time"]))
    if(input$time_type=="Discrete"){
-      time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, selected = tvec[1],
-                      grid = TRUE)
-    }
-    else{
-      time_bar <- sliderInput("time_bar", label = input$time_var,
-                              min = min(tvec), max = max(tvec),
-                              step = min(diff(tvec)),
+      time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, 
+                                  selected = tvec[1], grid = TRUE)
+    } else {
+      time_bar <- sliderInput("time_bar", label = input$time_var, min = min(tvec), max = max(tvec),
+                              step = min(diff(tvec)), value = min(tvec),
                               ticks = FALSE)
     }
     time_bar
@@ -517,71 +529,79 @@ server <- function(input, output) {
   })
   
   # main panel outputs
-  ## calculate adjacency matrix at each time point
+  ## calculate dissimilarity matrix at each time point
   diss_mat <- reactive({
-    req(df_net(), input$time_type)
-    mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
-    GetAdjMat(data= df_net(), adj = "Correlation", cor_method = input$cor_type, mds_type = mds_type)
+    req(df_net(), input$time_type, input$mtype)
+    if(input$time_type == "Discrete"){
+           DynDissimMat(df_net(), method = input$mtype)
+      } else {
+           SplDissimMat(df_net(), method = input$mtype)
+  }
   })
   ## calculate coordinates
   coord_list <- reactive({
-    req(adj_mat(), df_net(), input$time_type)
-    mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
+    req(diss_mat(), df_net(), input$time_type)
     t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
-    t_id <- seq_along(t_uniq) # time index
-    if(mds_type=="Splines"){
-      SplinesMDS(adj_mat(), lambda = 8, P = dim(adj_mat()[[1]])[1], tvec = t_uniq)
-    }
-    else{
-      DynamicMDS(adj_mat(), 5)
-    }
+    # t_id <- seq_along(t_uniq) # time index
+    if(input$time_type == "Discrete"){
+           DynamicMDS(diss_mat(), lambda = 5)
+    } else {
+        SplinesMDS(diss_mat(), lambda = 7, P = ncol(df_net())-1, tvec = t_uniq)
+  }
   })
   ## calculated hierarchical groups
   group_list <- reactive({
-    req(input$hclust, df_net(), input$cor_type)
-    adj_mat <- GetAdjMat(data= df_net(), adj = "Correlation", cor_method = input$cor_type, mds_type = "Dynamic")
-    lapply(adj_mat, function(x){ 
-      dis_mat <- 1-x
-      dis_mat <- as.dist(dis_mat)
-      hclust_fit <- hclust(dis_mat)
-      return(hclust_fit)}
-      )
+    req(input$hclust, diss_mat())
+    lapply(diss_mat(), function(x){hclust(as.dist(x))})
   })
   ## plot
   output$mds_note1 <- renderPrint({
     req(input$time_type)
     mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
-    HTML(paste0("This networkplot is generated by ", mds_type, " multidimentional scaling based on ", input$time_type, " time and ", input$cor_type, " correlation. 
-            To change the type of time variable or correlation, please move back to the previous tab.")) 
+    HTML(paste0("This networkplot is generated by ", mds_type, " multidimentional scaling based on ", input$time_type, " time and ", input$cor_type, " correlation.
+            To change the type of time variable or correlation, please move back to the previous tab."))
   })
-  output$mds_note2 <- renderPrint({
-    HTML("
-    Observations may be excluded for the following reasons:
-        <li>Empty rows or columns</li>
-        <li>Less than two observations at any given time. Correlation is not realiable due to insufficiant sample. </li>
-         ")
-  })
-    
+  # output$mds_note2 <- renderPrint({
+  #   HTML("
+  #   Observations may be excluded for the following reasons:
+  #       <li>Empty rows or columns</li>
+  #       <li>Less than two observations at any given time. Correlation is not realiable due to insufficiant sample. </li>
+  #        ")
+  # })
+
   output$netp <- renderPlot({
-   
+
       withProgress(
         value=0, message = "Processing", detail="This may take a while...",
         {
-          req(adj_mat(), df_net(),  coord_list(), input$time_bar)
+          req(df_net(),  coord_list(), input$time_bar, diss_mat())
           t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
           tid <- which(t_uniq==input$time_bar) # time index
-          
-          adj_t <- adj_mat()[[tid]]
-          adj_t[which(adj_t <= input$thres_cor)] <- 0 # thresholding edges
-          miss_node <- colnames(adj_t)[is.na(diag(adj_t))] # missing nodes
-          # graph_t <- graph_list()[[input_tid]]
+
+          # current time point
+          diss_t <- diss_mat()[[tid]]
           coord_t <- coord_list()[[tid]]
-          net_t <- graph_from_adjacency_matrix(adj_t, mode = "undirected", weighted = T, diag=F)
-          # edges
-          E(net_t)$width <- E(net_t)$weight*5
-          # node properties
-          V(net_t)$color <- ifelse(!V(net_t)$name %in% miss_node, rgb(0.2, 0.4, 0.8, alpha=0.4), NA)
-          # color
+          nodes_t <- colnames(diss_t) # all nodes on the graph
+          vars_t <- nodes_t[!is.na(diag(diss_t))] # non-empty variables
+          
+          # adjacency matrix from dissimilarity matrix
+          if(input$mtype=="euclidean"){
+            adj_t <- (max(diss_t)-diss_t)/(max(diss_t)-min(diss_t))
+            thres <- (max(diss_t)-input$thres_m)/(max(diss_t)-min(diss_t))
+            adj_t[adj_t < thres] <- 0
+          } else {
+            adj_t <- 1-diss_t
+            adj_t[adj_t < input$thres_m] <- 0
+          }
+          
+          # initialize graph
+          net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, mode = "undirected", diag = FALSE)
+          V(net_t)$color <- ifelse(V(net_t)$name %in% vars_t, rgb(0.2, 0.4, 0.8, alpha=0.4), NA)
+          E(net_t)$width = 10*E(net_t)$weight
+          E(net_t)$label <- round(E(net_t)$weight, 2)
+          
+          # if did clustering
+          color
           if(input$hclust){
             group_t <- group_list()[[tid]]
             group_t <- cutree(group_t, k = input$nclust)
@@ -593,77 +613,77 @@ server <- function(input, output) {
            layout = as.matrix(coord_t),
            vertex.frame.color=ifelse(is.na(V(net_t)$color), "grey", NA),
            vertex.label.cex=1,
-           vertex.size = 20, 
-           vertex.color = V(net_t)$color, 
+           vertex.size = 20,
+           vertex.color = V(net_t)$color,
            margin = 0)
-        # 
+        #
         # cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
         # if(any(cond)){warning(paste("Data showed perfect similarity at time", which(cond)))}
-        # 
+        #
     incProgress(1)}
     )
     })
     ## group label plot
-  output$group_plot <- renderPlot({
-    req(input$hclust, input$nclust, group_list(), df_net(), input$group_plot, input$time_bar)
-    tvec <- sort(unique((df_net()[ , "time"])))
-    tid <- which(tvec==input$time_bar)
-
-    group_label_list <- lapply(group_list(), function(hclust_fit){cutree(hclust_fit, k = input$nclust)})
-
-    if(input$group_plot == 1){
-        bind_rows(group_label_list, .id = "time") %>%
-          mutate(time=tvec) %>%
-          pivot_longer(-time) %>%
-          mutate(value = as.factor(value), time = as.numeric(time)) %>%
-          ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
-          geom_flow()+
-          geom_stratum()+
-          geom_vline(xintercept = input$time_bar)+
-          labs(x="Time", y = "Group", title = "Group flow chart")+
-          guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
-          theme(legend.position = "bottom", axis.text.y = element_blank())+
-          scale_color_brewer(palette = "Accent")+
-          scale_fill_brewer(palette = "Accent")+
-          scale_x_continuous(breaks = tvec)
-    } else if(input$group_plot == 2){
-      bind_rows(group_label_list, .id = "time") %>%
-        mutate(time=tvec) %>%
-        pivot_longer(-time) %>%
-        mutate(value = as.factor(value), time = as.numeric(time)) %>%
-        ggplot(aes(x=time, y=name, fill=value))+
-        geom_tile(alpha=0.7)+
-        geom_vline(xintercept = input$time_bar)+
-        labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
-        theme(legend.position = "bottom")+
-        scale_fill_brewer(palette = "Accent")+
-        scale_x_continuous(breaks = tvec)
-    } else{
-       ggdendrogram(group_list()[[tid]], rotate = T, size = 2)+
-            labs(title = paste0("Hierarchial group at time ", input$time_bar))
-      
-    }
-  })
-  ## note
-  output$group_note <- renderText({
-    req(input$hclust)
-    if(input$group_plot==1){
-      HTML("
-        <li>This plot visualizes the change of group structure of variables over time using an <a href='https://corybrunson.github.io/ggalluvial/' target='_blank'>Alluvial plot</a></li>
-        <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
-        <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
-         ")
-    } else if(input$group_plot==2){
-      HTML("
-        <li>This plot visualizes the change of group assignment for each variable.</li>
-        <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
-        <li>Change of color indicates change of group assignments.</li>
-         ")
-    } else{ 
-      HTML("
-        <li>This plot visualizes the hierachical structure of variables at a specific time.</li>
-         ")}
-    })
+  # output$group_plot <- renderPlot({
+  #   req(input$hclust, input$nclust, group_list(), df_net(), input$group_plot, input$time_bar)
+  #   tvec <- sort(unique((df_net()[ , "time"])))
+  #   tid <- which(tvec==input$time_bar)
+  # 
+  #   group_label_list <- lapply(group_list(), function(hclust_fit){cutree(hclust_fit, k = input$nclust)})
+  # 
+  #   if(input$group_plot == 1){
+  #       bind_rows(group_label_list, .id = "time") %>%
+  #         mutate(time=tvec) %>%
+  #         pivot_longer(-time) %>%
+  #         mutate(value = as.factor(value), time = as.numeric(time)) %>%
+  #         ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
+  #         geom_flow()+
+  #         geom_stratum()+
+  #         geom_vline(xintercept = input$time_bar)+
+  #         labs(x="Time", y = "Group", title = "Group flow chart")+
+  #         guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
+  #         theme(legend.position = "bottom", axis.text.y = element_blank())+
+  #         scale_color_brewer(palette = "Accent")+
+  #         scale_fill_brewer(palette = "Accent")+
+  #         scale_x_continuous(breaks = tvec)
+  #   } else if(input$group_plot == 2){
+  #     bind_rows(group_label_list, .id = "time") %>%
+  #       mutate(time=tvec) %>%
+  #       pivot_longer(-time) %>%
+  #       mutate(value = as.factor(value), time = as.numeric(time)) %>%
+  #       ggplot(aes(x=time, y=name, fill=value))+
+  #       geom_tile(alpha=0.7)+
+  #       geom_vline(xintercept = input$time_bar)+
+  #       labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
+  #       theme(legend.position = "bottom")+
+  #       scale_fill_brewer(palette = "Accent")+
+  #       scale_x_continuous(breaks = tvec)
+  #   } else{
+  #      ggdendrogram(group_list()[[tid]], rotate = T, size = 2)+
+  #           labs(title = paste0("Hierarchial group at time ", input$time_bar))
+  #     
+  #   }
+  # })
+  # ## note
+  # output$group_note <- renderText({
+  #   req(input$hclust)
+  #   if(input$group_plot==1){
+  #     HTML("
+  #       <li>This plot visualizes the change of group structure of variables over time using an <a href='https://corybrunson.github.io/ggalluvial/' target='_blank'>Alluvial plot</a></li>
+  #       <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
+  #       <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
+  #        ")
+  #   } else if(input$group_plot==2){
+  #     HTML("
+  #       <li>This plot visualizes the change of group assignment for each variable.</li>
+  #       <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
+  #       <li>Change of color indicates change of group assignments.</li>
+  #        ")
+  #   } else{ 
+  #     HTML("
+  #       <li>This plot visualizes the hierachical structure of variables at a specific time.</li>
+  #        ")}
+  #   })
   
  
   # tab 4: integrated correlation and grouping results

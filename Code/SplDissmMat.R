@@ -12,8 +12,8 @@ SplDissimMat <- function(data, method = "spearman"){
   
   # preprocess
   data <- data %>%
-    group_by(time) %>%
-    mutate_all(scale, center = T, scale = T)
+    mutate_all(scale, center = T, scale = T) %>% 
+    group_by(time)
   
   # correlation
   if(mid<=2){
