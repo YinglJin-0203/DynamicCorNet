@@ -44,8 +44,9 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec){
   # Xmat <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 0, Boundary.knots = range(tvec))
   # Xmat2dev <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 2, Boundary.knots = range(tvec))
   # K <- ncol(Xmat)
-  Xmat <- bSpline(tvec, df = 5, degree = 3, derivs = 0, Boundary.knots = range(tvec))
-  Xmat2dev <- bSpline(tvec, df = 5, degree = 3, derivs = 2, Boundary.knots = range(tvec))
+  tknots <- seq(min(tvec), max(tvec), by = min(diff(tvec)))
+  Xmat <- bSpline(tknots, df = 5, degree = 2, derivs = 0)
+  Xmat2dev <- bSpline(tknots, df = 5, degree = 2, derivs = 2)
   K <- ncol(Xmat)
   
   # Optimize with regard to 
@@ -63,7 +64,8 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec){
   
   coefs <- list(init_coord = init_coord, 
                 xi1 = xi1, 
-                xi2 = xi2)
+                xi2 = xi2,
+                Xmat = Xmat)
   # Xmat <- bs(tid, df = 20)
   # c1 <- init_coord[,1] + xi1 %*% t(Xmat)
   # c2 <- init_coord[,2] + xi2 %*% t(Xmat)

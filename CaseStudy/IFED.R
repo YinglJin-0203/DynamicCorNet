@@ -85,9 +85,7 @@ image_write(DynMDS_educlidean_all, path = "images/CaseStudy/DynMDS_euclidean_all
 #### Splines MDS ####
 
 df_org <- read.csv("Data/IFEDDemoData.csv")
-df <- df_org %>% select(-ID, -Length, -Weight.for.age, -Height.for.age, 
-                    -Weight.for.height, -Length, -Bud.bead.diameter,
-                    -Week) %>% 
+df <- df_org %>% select(-ID, -Week) %>% 
   rename(time=Age.at.exam)
 
 tuniq <- sort(unique(df$time))
@@ -97,24 +95,57 @@ source(here("Code/Helpers/SplMDSHelpers.R"))
 source(here("Code/SplinesMDS.R"))
 
 # dissmilarity matrix
-dist_mats <- SplDissimMat(df, method = "euclidean")
+dist_mats <- SplDissimMat(df, method = "spearman")
+View(dist_mats[[1]])
+diss_t <- dist_mats[[1]]
+adj_t <- 1-diss_t
+adj_t[adj_t <= 1] <- 0
+adj_t[is.na(adj_t)] <- 0
+net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, 
+                                     mode = "undirected", 
+                                     diag = FALSE)
+E(net_t)$width = 10*E(net_t)$weight
+plot(net_t)
 warnings()
 dim(dist_mats[[1]])
+class(dist_mats[0==tuniq])
+
+df %>% filter(time==10) %>%
+  select(!time) %>%
+  select(where(~!all(is.na(.)))) %>% colnames()
 
 # coordinates
 system.time({
-  coords <- SplinesMDS(dist_mats, lambda = 5, P = 12, tvec = tuniq)
+  coords <- SplinesMDS(dist_mats, lambda = 7, P = ncol(df)-1, tvec = tuniq)
 })
 
+xdim(coords$init_coord)
+coords$xi1
+coords$xi2
+dim(coords$Xmat)
 save(coords, file = "CaseStudy/Splcoords_euclidean.RData")
 
 # graph
 load("CaseStudy/Splcoords.RData")
 ## coeeficients
-xi1 <- coords$xi1
-xi2 <- coords$xi2
-init_coords <- coords$init_coord
-  
+# all nodes on the graph
+nodes_t <- colnames(df %>% select(!time))
+# non-empty variables
+vars_t <- colnames(df %>% filter(time==5) %>%
+                     select(!time) %>%
+                     select(where(~!all(is.na(.)))))
+# graph 
+net_t <- make_empty_graph(n = length(nodes_t), directed = FALSE)
+plot(net_t)
+V(net_t)$name <- nodes_t
+V(net_t)$color <- ifelse(V(net_t)$name %in% vars_t, 1, 2)
+
+coord_t <- cbind(init_coords[, 1] + xi1 %*% Xmat[tid[t],],
+                 init_coords[, 2] + xi2 %*% Xmat[tid[t],])
+
+seq(min(tuniq), max(tuniq), by = min(diff(tuniq)))
+init_coords[, 1] + xi1 %*% t(Xmat[1,])
+dim(Xmat[1,])
   # c1 <- init_coord[,1] + xi1 %*% t(Xmat)
   # c2 <- init_coord[,2] + xi2 %*% t(Xmat)
   # coords <- lapply(tid, function(x){return(data.frame(c1 = c1[ , x], 

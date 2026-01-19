@@ -482,7 +482,7 @@ server <- function(input, output) {
   output$thres_m <- renderUI({
     req(input$mtype)
     if(input$mtype == "euclidean"){
-      diss_range <- round(range(unlist(diss_mat())))
+      diss_range <- round(range(unlist(diss_mat()), na.rm = T))
       sliderInput("thres_m", label = "Show distance below",
                   min = diss_range[1], max = diss_range[2], value = diss_range[1])
     } else {
@@ -510,8 +510,9 @@ server <- function(input, output) {
       time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec, 
                                   selected = tvec[1], grid = TRUE)
     } else {
-      time_bar <- sliderInput("time_bar", label = input$time_var, min = min(tvec), max = max(tvec),
-                              step = min(diff(tvec)), value = min(tvec),
+      time_bar <- sliderInput("time_bar", label = input$time_var, 
+                              min = min(tvec, na.rm = T), max = max(tvec, na.rm = T),
+                              step = min(diff(tvec), na.rm = T), value = min(tvec, na.rm = T),
                               ticks = FALSE)
     }
     time_bar
@@ -547,6 +548,7 @@ server <- function(input, output) {
            DynamicMDS(diss_mat(), lambda = 5)
     } else {
         SplinesMDS(diss_mat(), lambda = 7, P = ncol(df_net())-1, tvec = t_uniq)
+      # in this case, coord_list includes initial coordinates and cofficients
   }
   })
   ## calculated hierarchical groups
@@ -575,42 +577,83 @@ server <- function(input, output) {
         value=0, message = "Processing", detail="This may take a while...",
         {
           req(df_net(),  coord_list(), input$time_bar, diss_mat())
-          t_uniq <- sort(unique(df_net()[, "time"])) # original time scale
-          tid <- which(t_uniq==input$time_bar) # time index
-
-          # current time point
-          diss_t <- diss_mat()[[tid]]
-          coord_t <- coord_list()[[tid]]
-          nodes_t <- colnames(diss_t) # all nodes on the graph
-          vars_t <- nodes_t[!is.na(diag(diss_t))] # non-empty variables
-          
-          # adjacency matrix from dissimilarity matrix
-          if(input$mtype=="euclidean"){
-            adj_t <- (max(diss_t)-diss_t)/(max(diss_t)-min(diss_t))
-            thres <- (max(diss_t)-input$thres_m)/(max(diss_t)-min(diss_t))
-            adj_t[adj_t < thres] <- 0
+          t_uniq <- sort(unique(df_net()[, "time"]))
+    
+          # Dynamic MDS 
+          if(input$time_type == "Discrete"){
+            tid <- which(input$time_bar == t_uniq)
+            diss_t <- diss_mat()[[tid]]
+            coord_t <- as.matrix(coord_list()[[tid]])
+            nodes_t <- colnames(diss_t) 
+            # adjacency matrix
+            if(input$mtype=="euclidean"){
+              adj_t <- (max(diss_t)-diss_t)/(max(diss_t)-min(diss_t))
+              thres <- (max(diss_t)-input$thres_m)/(max(diss_t)-min(diss_t))
+              adj_t[adj_t <= thres] <- 0
+            } else {
+              adj_t <- 1-diss_t
+              adj_t[adj_t <= input$thres_m] <- 0
+            }
+            # graph
+            net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, 
+                                                 mode = "undirected", 
+                                                 diag = FALSE)
+            V(net_t)$color <- rgb(0.2, 0.4, 0.8, alpha=0.4)
+            E(net_t)$width = 10*E(net_t)$weight
+            # E(net_t)$label <- round(E(net_t)$weight, 2)
           } else {
-            adj_t <- 1-diss_t
-            adj_t[adj_t < input$thres_m] <- 0
-          }
-          
-          # initialize graph
-          net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, mode = "undirected", diag = FALSE)
-          V(net_t)$color <- ifelse(V(net_t)$name %in% vars_t, rgb(0.2, 0.4, 0.8, alpha=0.4), NA)
-          E(net_t)$width = 10*E(net_t)$weight
-          E(net_t)$label <- round(E(net_t)$weight, 2)
+            # Splines MDS
+            tgrid <-seq(min(t_uniq), max(t_uniq), by = min(diff(t_uniq)))
+            tid <- which(tgrid == input$time_bar)
+            xi1 <- coord_list()$xi1
+            xi2 <- coord_list()$xi2
+            init_coords <- coord_list()$init_coord
+            Xmat <- coord_list()$Xmat
+            # splines 
+            coord_t <- cbind(init_coords[, 1] + xi1 %*% Xmat[tid,],
+                             init_coords[, 2] + xi2 %*% Xmat[tid,])
+            # all nodes on the graph
+            nodes_t <- colnames(df_net() %>% select(!time))
+            # non-empty variables
+            vars_t <- colnames(df_net() %>% filter(time==input$time_bar) %>%
+                                 select(!time) %>%
+                                 select(where(~!all(is.na(.)))))
+            # graph and edges
+            if(input$time_bar %in% t_uniq){
+              # dissimilarity matrix
+              diss_t <- diss_mat()[input$time_bar == t_uniq][[1]]
+              # adjacency matrix
+              if(input$mtype=="euclidean"){
+                adj_t <- (max(diss_t)-diss_t)/(max(diss_t)-min(diss_t))
+                thres <- (max(diss_t)-input$thres_m)/(max(diss_t)-min(diss_t))
+                adj_t[adj_t <= thres] <- 0
+              } else {
+                adj_t <- 1-diss_t
+                adj_t[adj_t <= input$thres_m] <- 0
+              }
+              net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, 
+                                                   mode = "undirected", 
+                                                   diag = FALSE)
+            } else {
+              net_t <- make_empty_graph(n = length(nodes_t), directed = FALSE)
+              V(net_t)$name <- nodes_t
+              }
+            V(net_t)$color <- ifelse(V(net_t)$name %in% vars_t, 
+                                     rgb(0.2, 0.4, 0.8, alpha=0.4), NA)
+            E(net_t)$width = 10*E(net_t)$weight
+            }
           
           # if did clustering
-          color
-          if(input$hclust){
-            group_t <- group_list()[[tid]]
-            group_t <- cutree(group_t, k = input$nclust)
-            group_c <- brewer.pal(input$nclust, "Accent")[group_t]
-            names(group_c) <- names(group_t)
-            V(net_t)$color[!V(net_t)$name %in% miss_node] <- group_c[V(net_t)$name]
-          }
+          # color
+          # if(input$hclust){
+          #   group_t <- group_list()[[tid]]
+          #   group_t <- cutree(group_t, k = input$nclust)
+          #   group_c <- brewer.pal(input$nclust, "Accent")[group_t]
+          #   names(group_c) <- names(group_t)
+          #   V(net_t)$color[!V(net_t)$name %in% miss_node] <- group_c[V(net_t)$name]
+          # }
           plot(net_t,
-           layout = as.matrix(coord_t),
+           layout = coord_t,
            vertex.frame.color=ifelse(is.na(V(net_t)$color), "grey", NA),
            vertex.label.cex=1,
            vertex.size = 20,
