@@ -38,6 +38,8 @@ source(here("Code/SplDissmMat.R"))
 source(here("Code/Helpers/SplMDSHelpers.R"))
 source(here("Code/SplinesMDS.R"))
 
+source(here("Code/HclustCoord.R"))
+
 source(here("Code/IntAdjMat.R"))
 
 #### User interface ####
@@ -162,6 +164,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                checkboxInput("hclust", label = "Show groups", 
                              value = FALSE),
                uiOutput("nclust"),
+               uiOutput("group_sum"),
                uiOutput("group_type"), 
                # variable list
                uiOutput("varnames3"),
@@ -383,7 +386,7 @@ server <- function(input, output) {
     df_cor <- df_pair %>% 
       group_by(time) %>%
       summarize(cor = cor(.data[[var1]], .data[[var2]], 
-                          use = "pairwise.complete.obs"),
+                          use = "pairwise.complete.obs", method = input$cor_type),
                 Npair = sum(complete.cases(.data[[var1]], .data[[var2]]))/N)
     # plot
     p2 <- df_cor %>% 
@@ -498,8 +501,6 @@ server <- function(input, output) {
     df_net <- df()[, c(input$time_var, confirmed())] %>%
       rename(time = input$time_var) %>%
       filter(!if_all(confirmed(), is.na)) # remove empty columns
-    # exclude_time <- df_net %>% group_by(time) %>% summarize(nrow=n()) %>% filter(nrow<=2)
-    # df_net %>% filter(!time %in% exclude_time$time)
   })
   ## time axis
   output$time_bar <- renderUI({
@@ -517,13 +518,20 @@ server <- function(input, output) {
     }
     time_bar
   })
+  ### time grids
+  
   ## grouping results
   output$nclust <- renderUI({
     req(input$hclust)
     numericInput("nclust", label = "Number of groups", value = 1)
   })
+  output$group_sum <- renderUI({
+    req(input$hclust, input$nclust)
+    checkboxInput("group_sum", "Show summary of grouping over time")
+    
+  })
   output$group_type <- renderUI({
-    req(input$hclust)
+    req(input$group_sum)
     radioButtons("group_plot", label = "Group summary: ", choices = list("By temporal flow" = 1, 
                                                                          "By variable" = 2,
                                                                          "Hierarchical tree" = 3))
@@ -539,6 +547,30 @@ server <- function(input, output) {
            SplDissimMat(df_net(), method = input$mtype)
   }
   })
+  ## calculate adjacency matrix from dissimilarity matrix
+  adj_mat <- reactive({
+    req(diss_mat(), input$mtype, input$thres_m)
+    # adjacency matrix
+    if(input$mtype=="euclidean"){
+      max_diss <- max(unlist(diss_mat()), na.rm = T)
+      min_diss <- min(unlist(diss_mat()), na.rm = T)
+      adj_mat <- lapply(diss_mat(),
+                     function(diss_t){(max_diss-diss_t)/(max_diss-min_diss)})
+      thres <- (max_diss-input$thres_m)/(max_diss-min_diss)
+      adj_mat <- lapply(adj_mat, 
+                        function(adj_t){
+                          adj_t[adj_t <= thres] <- 0
+                          return(adj_t)})
+    } else {
+      adj_mat <- lapply(diss_mat(), 
+                        function(diss_t){
+                          adj_t <- 1-diss_t
+                          adj_t[adj_t <= input$thres_m] <- 0
+                          return(adj_t)
+                        })
+    }
+    adj_mat
+  })
   ## calculate coordinates
   coord_list <- reactive({
     req(diss_mat(), df_net(), input$time_type)
@@ -551,10 +583,9 @@ server <- function(input, output) {
       # in this case, coord_list includes initial coordinates and cofficients
   }
   })
-  ## calculated hierarchical groups
+  ## grouping
   group_list <- reactive({
-    req(input$hclust, diss_mat())
-    lapply(diss_mat(), function(x){hclust(as.dist(x))})
+    
   })
   ## plot
   output$mds_note1 <- renderPrint({
@@ -576,30 +607,21 @@ server <- function(input, output) {
       withProgress(
         value=0, message = "Processing", detail="This may take a while...",
         {
-          req(df_net(),  coord_list(), input$time_bar, diss_mat())
+          req(df_net(),  coord_list(), input$time_bar, adj_mat())
           t_uniq <- sort(unique(df_net()[, "time"]))
     
           # Dynamic MDS 
           if(input$time_type == "Discrete"){
             tid <- which(input$time_bar == t_uniq)
-            diss_t <- diss_mat()[[tid]]
+            # diss_t <- diss_mat()[[tid]]
             coord_t <- as.matrix(coord_list()[[tid]])
-            nodes_t <- colnames(diss_t) 
-            # adjacency matrix
-            if(input$mtype=="euclidean"){
-              adj_t <- (max(diss_t)-diss_t)/(max(diss_t)-min(diss_t))
-              thres <- (max(diss_t)-input$thres_m)/(max(diss_t)-min(diss_t))
-              adj_t[adj_t <= thres] <- 0
-            } else {
-              adj_t <- 1-diss_t
-              adj_t[adj_t <= input$thres_m] <- 0
-            }
+            adj_t <- adj_mat()[[tid]]
+            nodes_t <- colnames(adj_t)
+            vars_t <- colnames(adj_t)
             # graph
             net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, 
                                                  mode = "undirected", 
                                                  diag = FALSE)
-            V(net_t)$color <- rgb(0.2, 0.4, 0.8, alpha=0.4)
-            E(net_t)$width = 10*E(net_t)$weight
             # E(net_t)$label <- round(E(net_t)$weight, 2)
           } else {
             # Splines MDS
@@ -620,17 +642,8 @@ server <- function(input, output) {
                                  select(where(~!all(is.na(.)))))
             # graph and edges
             if(input$time_bar %in% t_uniq){
-              # dissimilarity matrix
-              diss_t <- diss_mat()[input$time_bar == t_uniq][[1]]
               # adjacency matrix
-              if(input$mtype=="euclidean"){
-                adj_t <- (max(diss_t)-diss_t)/(max(diss_t)-min(diss_t))
-                thres <- (max(diss_t)-input$thres_m)/(max(diss_t)-min(diss_t))
-                adj_t[adj_t <= thres] <- 0
-              } else {
-                adj_t <- 1-diss_t
-                adj_t[adj_t <= input$thres_m] <- 0
-              }
+              adj_t <- adj_mat()[input$time_bar == t_uniq][[1]]
               net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, 
                                                    mode = "undirected", 
                                                    diag = FALSE)
@@ -638,75 +651,81 @@ server <- function(input, output) {
               net_t <- make_empty_graph(n = length(nodes_t), directed = FALSE)
               V(net_t)$name <- nodes_t
               }
-            V(net_t)$color <- ifelse(V(net_t)$name %in% vars_t, 
-                                     rgb(0.2, 0.4, 0.8, alpha=0.4), NA)
-            E(net_t)$width = 10*E(net_t)$weight
             }
           
-          # if did clustering
-          # color
-          # if(input$hclust){
-          #   group_t <- group_list()[[tid]]
-          #   group_t <- cutree(group_t, k = input$nclust)
-          #   group_c <- brewer.pal(input$nclust, "Accent")[group_t]
-          #   names(group_c) <- names(group_t)
-          #   V(net_t)$color[!V(net_t)$name %in% miss_node] <- group_c[V(net_t)$name]
-          # }
+          # plot properties
+          V(net_t)$color <- rgb(0.2, 0.4, 0.8, alpha=0.4)
+          E(net_t)$width = 7*E(net_t)$weight
+          
+          # if did clustering, color by cluster
+          if(input$hclust){
+            hclust_t <- hclust(dist(coord_t))
+            group_t <- cutree(hclust_t, k = input$nclust)
+            node_col_t <- brewer.pal(input$nclust, "Accent")[group_t]
+            V(net_t)$color <- node_col_t
+          }
+          
+          # plot
           plot(net_t,
            layout = coord_t,
-           vertex.frame.color=ifelse(is.na(V(net_t)$color), "grey", NA),
+           vertex.frame.color=V(net_t)$color,
+           vertex.color = ifelse(V(net_t)$name %in% vars_t, V(net_t)$color, NA),
            vertex.label.cex=1,
            vertex.size = 20,
-           vertex.color = V(net_t)$color,
            margin = 0)
-        #
-        # cond <- sapply(adj_mat(), function(x){all(round(abs(x), 10)==1, na.rm = T) & !all(is.na(x))})
-        # if(any(cond)){warning(paste("Data showed perfect similarity at time", which(cond)))}
-        #
+          
     incProgress(1)}
     )
     })
     ## group label plot
-  # output$group_plot <- renderPlot({
-  #   req(input$hclust, input$nclust, group_list(), df_net(), input$group_plot, input$time_bar)
-  #   tvec <- sort(unique((df_net()[ , "time"])))
-  #   tid <- which(tvec==input$time_bar)
-  # 
-  #   group_label_list <- lapply(group_list(), function(hclust_fit){cutree(hclust_fit, k = input$nclust)})
-  # 
-  #   if(input$group_plot == 1){
-  #       bind_rows(group_label_list, .id = "time") %>%
-  #         mutate(time=tvec) %>%
-  #         pivot_longer(-time) %>%
-  #         mutate(value = as.factor(value), time = as.numeric(time)) %>%
-  #         ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
-  #         geom_flow()+
-  #         geom_stratum()+
-  #         geom_vline(xintercept = input$time_bar)+
-  #         labs(x="Time", y = "Group", title = "Group flow chart")+
-  #         guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
-  #         theme(legend.position = "bottom", axis.text.y = element_blank())+
-  #         scale_color_brewer(palette = "Accent")+
-  #         scale_fill_brewer(palette = "Accent")+
-  #         scale_x_continuous(breaks = tvec)
-  #   } else if(input$group_plot == 2){
-  #     bind_rows(group_label_list, .id = "time") %>%
-  #       mutate(time=tvec) %>%
-  #       pivot_longer(-time) %>%
-  #       mutate(value = as.factor(value), time = as.numeric(time)) %>%
-  #       ggplot(aes(x=time, y=name, fill=value))+
-  #       geom_tile(alpha=0.7)+
-  #       geom_vline(xintercept = input$time_bar)+
-  #       labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
-  #       theme(legend.position = "bottom")+
-  #       scale_fill_brewer(palette = "Accent")+
-  #       scale_x_continuous(breaks = tvec)
-  #   } else{
-  #      ggdendrogram(group_list()[[tid]], rotate = T, size = 2)+
-  #           labs(title = paste0("Hierarchial group at time ", input$time_bar))
-  #     
-  #   }
-  # })
+  output$group_plot <- renderPlot({
+    req(input$hclust, input$nclust, input$group_sum, coord_list(), df_net(), input$group_plot, input$time_bar)
+    
+    # groups
+    if(input$time_type == "Discrete"){
+        group_list <- HclustCoord(coord_list(), "dynamic", input$nclust)
+        tgrid <- sort(unique((df_net()[ , "time"])))
+    } else {
+      group_list <- HclustCoord(coord_list(), "splines", input$nclust)
+      tvec <- sort(unique(df_net()[,"time"]))
+      tgrid <- seq(min(tvec), max(tvec), by = min(diff(tvec)))
+    }
+    
+    tid <- which(tgrid==input$time_bar)
+
+    if(input$group_plot == 1){
+        bind_rows(group_label_list, .id = "time") %>%
+          mutate(time=tvec) %>%
+          pivot_longer(-time) %>%
+          mutate(value = as.factor(value), time = as.numeric(time)) %>%
+          ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
+          geom_flow()+
+          geom_stratum()+
+          geom_vline(xintercept = input$time_bar)+
+          labs(x="Time", y = "Group", title = "Group flow chart")+
+          guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
+          theme(legend.position = "bottom", axis.text.y = element_blank())+
+          scale_color_brewer(palette = "Accent")+
+          scale_fill_brewer(palette = "Accent")+
+          scale_x_continuous(breaks = tvec)
+    } else if(input$group_plot == 2){
+      bind_rows(group_label_list, .id = "time") %>%
+        mutate(time=tvec) %>%
+        pivot_longer(-time) %>%
+        mutate(value = as.factor(value), time = as.numeric(time)) %>%
+        ggplot(aes(x=time, y=name, fill=value))+
+        geom_tile(alpha=0.7)+
+        geom_vline(xintercept = input$time_bar)+
+        labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
+        theme(legend.position = "bottom")+
+        scale_fill_brewer(palette = "Accent")+
+        scale_x_continuous(breaks = tvec)
+    } else{
+       ggdendrogram(group_list()[[tid]], rotate = T, size = 2)+
+            labs(title = paste0("Hierarchial group at time ", input$time_bar))
+
+    }
+  })
   # ## note
   # output$group_note <- renderText({
   #   req(input$hclust)

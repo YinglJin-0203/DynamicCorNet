@@ -1,12 +1,29 @@
 
 df <- read.csv("Data/IFEDDemoData.csv")
-df <- df %>% select(-ID, -Length, -Weight.for.age, -Height.for.age, 
-                        -Weight.for.height, -Length, -Bud.bead.diameter,
-                        -Age.at.exam) %>% 
+df <- df %>% select(-ID, -Age.at.exam) %>% 
   rename(time=Week)
 
-diss_mats <- DynDissimMat(df, method = "euclidean")
-diss_t <- diss_mats[[1]]
+nodes_t <- colnames(df_net() %>% select(!time))
+# non-empty variables
+vars_t <- colnames(df_net() %>% filter(time==input$time_bar) %>%
+                     select(!time) %>%
+                     select(where(~!all(is.na(.)))))
+
+diss_mats <- DynDissimMat(df)
+
+coord_t <- coords[[1]]
+
+net_t <- graph_from_adjacency_matrix(diss_mats[[1]])
+V(net_t)$name
+
+hclust_t <- hclust(dist(coord_t))
+group_t <- cutree(hclust_t, k = 3)
+node_col_t <- brewer.pal(3, "Accent")[group_t]
+names(node_col_t) <- names(group_t)
+
+V(net_t)$color <- node_col_t[V(net_t)$name]
+
+
 diss_t <- (max(diss_t)-diss_t)/(max(diss_t)-min(diss_t))
 diss_t
 View(1-diss_t)

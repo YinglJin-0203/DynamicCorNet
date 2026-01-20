@@ -38,6 +38,8 @@ source(here("Code/DynamicMDS.R"))
 
 # dissmilarity matrix
 dist_mats <- DynDissimMat(df, method = "euclidean")
+sum(sapply(dist_mats, function(x)(dim(x)[1]^2)))
+dist_vec <- unlist(dist_mats)
 
 # coordinates
 system.time({
