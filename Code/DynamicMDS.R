@@ -1,6 +1,6 @@
 #' Calculate temporal network layout with dynamic multidimensional scaling
 #'
-#' @param dis_mat: dissimilarity matrix
+#' @param dis_mat: dissimilarity matrix list
 #' @param lambda: penalization parameter
 #'
 #' @returns
@@ -39,6 +39,9 @@ DynamicMDS <- function(dis_mat, lambda=5){
     ) # I will need a convergence warning here
   
   coords = reshape_configs(result$par, P=P, ndim=2, Tmax = Tmax)
+  coords <- lapply(1:Tmax, 
+                   function(t){rownames(coords[[t]]) <- rownames(dis_mat[[t]])
+                               return(coords[[t]])})
   
   # return both adjacency matrix, dissimilarity matrix and coordinates
   return(coords)

@@ -29,10 +29,10 @@ HclustCoord <- function(layout, method = "splines", k){
 
 
 # df <- read.csv("Data/IFEDDemoData.csv")
-# df <- df %>% select(-ID, -Age.at.exam) %>% 
+# df <- df %>% select(-ID, -Age.at.exam) %>%
 #   rename(time=Week)
 # diss_list <- DynDissimMat(df)
 # diss_list <- SplDissimMat(df)
 # try_lo <- DynamicMDS(diss_list)
 # try_lo <- SplinesMDS(diss_list, 7, 12, sort(unique(df$time)))
-# HclustCoord(try_lo, method = "dynamic", k=3)
+# HclustCoord(try_lo, method = "splines", k=3)

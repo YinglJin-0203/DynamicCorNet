@@ -61,6 +61,7 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec){
   # output coefficients and design matrix
   xi1 <- matrix(final_xi_vec$par[1: (P*K)], nrow = P)
   xi2 <- matrix(final_xi_vec$par[(P*K+1): (P*K*2)], nrow = P)
+  rownames(xi1) <- rownames(xi2) <- rownames(dis_mat[[1]])
   
   coefs <- list(init_coord = init_coord, 
                 xi1 = xi1, 

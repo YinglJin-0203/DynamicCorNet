@@ -585,7 +585,13 @@ server <- function(input, output) {
   })
   ## grouping
   group_list <- reactive({
-    
+    req(input$hclust, input$nclust, coord_list())
+      if(input$time_type == "Discrete"){
+        group_list <- HclustCoord(coord_list(), "dynamic", input$nclust)
+      } else {
+        group_list <- HclustCoord(coord_list(), "splines", input$nclust)
+      }
+    group_list
   })
   ## plot
   output$mds_note1 <- renderPrint({
@@ -659,8 +665,7 @@ server <- function(input, output) {
           
           # if did clustering, color by cluster
           if(input$hclust){
-            hclust_t <- hclust(dist(coord_t))
-            group_t <- cutree(hclust_t, k = input$nclust)
+            group_t <- group_list()[[tid]]
             node_col_t <- brewer.pal(input$nclust, "Accent")[group_t]
             V(net_t)$color <- node_col_t
           }
@@ -679,23 +684,20 @@ server <- function(input, output) {
     })
     ## group label plot
   output$group_plot <- renderPlot({
-    req(input$hclust, input$nclust, input$group_sum, coord_list(), df_net(), input$group_plot, input$time_bar)
+    req(input$hclust, input$nclust, input$group_sum, group_list(), df_net(), input$group_plot, input$time_bar)
     
-    # groups
+    # time scale
+    t_uniq <- sort(unique(df_net()[,"time"]))
     if(input$time_type == "Discrete"){
-        group_list <- HclustCoord(coord_list(), "dynamic", input$nclust)
-        tgrid <- sort(unique((df_net()[ , "time"])))
+      tid <- which(input$time_bar == t_uniq)
     } else {
-      group_list <- HclustCoord(coord_list(), "splines", input$nclust)
-      tvec <- sort(unique(df_net()[,"time"]))
-      tgrid <- seq(min(tvec), max(tvec), by = min(diff(tvec)))
+      t_uniq <-seq(min(t_uniq), max(t_uniq), by = min(diff(t_uniq)))
+      tid <- which(tgrid == input$time_bar)
     }
-    
-    tid <- which(tgrid==input$time_bar)
-
+    # plot
     if(input$group_plot == 1){
-        bind_rows(group_label_list, .id = "time") %>%
-          mutate(time=tvec) %>%
+        bind_rows(group_list(), .id = "time") %>%
+          mutate(time=t_uniq) %>%
           pivot_longer(-time) %>%
           mutate(value = as.factor(value), time = as.numeric(time)) %>%
           ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
