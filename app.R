@@ -137,9 +137,18 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                            h3("Comparision of distribution and temporal trend"),
                            plotOutput("trend_p")
                          ))),
+              ## subtab 2.3: overall
               tabPanel(title = "Overall",
                          sidebarLayout(
-                           sidebarPanel(uiOutput("time_bar1")),
+                           sidebarPanel(
+                             selectInput("cor_type2", label="Type of correlation",
+                                         choices = list("pearson", "spearman")),
+                             tagList(
+                               icon("info-circle"),
+                               em("Correlation measures may be unrealiable when the proportion of missing is large!")
+                             ),
+                             br(), br(),
+                             uiOutput("time_bar1")),
                            mainPanel(
                              h3("Correlation heatmap"),
                              plotOutput("heatmap")
@@ -476,11 +485,11 @@ server <- function(input, output) {
     
   })
   output$heatmap <- renderPlot({
-    req(df(), input$time_var, input$id_var)
+    req(df(), input$time_var, input$id_var, input$cor_type2)
     ## correlation matrix
     cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
                            filter(time==input$time_bar1), 
-                         select = -c(id, time)), method = input$cor_type, use = "pairwise.complete.obs")
+                         select = -c(id, time)), method = input$cor_type2, use = "pairwise.complete.obs")
     ## heatmap
     data.frame(cormat) %>% rownames_to_column("var1") %>%
       pivot_longer(-var1) %>%
