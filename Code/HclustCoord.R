@@ -1,5 +1,14 @@
 
-HclustCoord <- function(layout, method = "splines", k){
+#' Fit hierarchical clustering models for the output of Dynamic or Spliens MDS
+#'
+#' @param layout 
+#' @param method 
+#'
+#' @returns
+#' @export
+#'
+#' @examples
+HclustCoord <- function(layout, method = "splines"){
   
   if(method == "splines"){
     # layout parameters
@@ -21,7 +30,7 @@ HclustCoord <- function(layout, method = "splines", k){
   
   clust_list <- lapply(coord_list, function(c){
     hclust_t <- hclust(dist(c))
-    cutree(hclust_t, k = k)
+    return(hclust_t)
   })
   
   return(clust_list)
@@ -31,8 +40,8 @@ HclustCoord <- function(layout, method = "splines", k){
 # df <- read.csv("Data/IFEDDemoData.csv")
 # df <- df %>% select(-ID, -Age.at.exam) %>%
 #   rename(time=Week)
-# diss_list <- DynDissimMat(df)
+# # diss_list <- DynDissimMat(df)
 # diss_list <- SplDissimMat(df)
-# try_lo <- DynamicMDS(diss_list)
+# # try_lo <- DynamicMDS(diss_list)
 # try_lo <- SplinesMDS(diss_list, 7, 12, sort(unique(df$time)))
-# HclustCoord(try_lo, method = "splines", k=3)
+# HclustCoord(try_lo, method = "splines")

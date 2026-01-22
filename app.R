@@ -39,8 +39,9 @@ source(here("Code/Helpers/SplMDSHelpers.R"))
 source(here("Code/SplinesMDS.R"))
 
 source(here("Code/HclustCoord.R"))
+source(here("Code/GroupSumFigure.R"))
 
-source(here("Code/IntAdjMat.R"))
+source(here("Code/IntDissMat.R"))
 
 #### User interface ####
 
@@ -101,13 +102,11 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                                    h3('Single variable summary'),
                                    plotOutput("sum_tb"),
                                    # downloadButton("download_sum", "Download"),
-                                   h4("Note:"),
+                                   h5(icon("circle-info"), "Notes on Individual Variable Summary"),
                                    htmlOutput("sum_tb_note"),
                                    br(),
                                    h3("Missing pattern of each subject"),
                                    plotOutput("miss_plot"),
-                                   # downloadButton("download_miss"),
-                                   h4("Note"),
                                    h3("N (%) of missing observations"),
                                    htmlOutput("miss_note"),
                                    br(),
@@ -132,6 +131,8 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                          mainPanel(
                            h3("Empirical correlation for a pair of variables"),
                            plotOutput("cor_trend_p"),
+                           h5(icon("circle-info"), "Notes on correlation summary plot:"),
+                           htmlOutput("cor_trend_note"),
                            br(),
                            h3("Comparision of distribution and temporal trend"),
                            plotOutput("trend_p")
@@ -152,12 +153,20 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
            sidebarLayout(
              # side bar
              sidebarPanel(
-               # choose correlation threshold
+               # choose correlation type
                selectInput("mtype", label="Type of correlation/association", 
                            choices = list("pearson", "spearman", "euclidean")),
+               tagList(
+                 icon("info-circle"),
+                 em("Strong association is indicated by large absolute values of correlation, or small values of euclidean distance.")
+               ),
+               br(),
+               tagList(
+                 icon("info-circle"),
+                 em("While correlation always has a range of [0, 1], the range of euclidean distance is data-dependent.")
+               ),
+               br(), br(),
                uiOutput("thres_m"),
-               # sliderInput(inputId = "thres_cor", label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
-               #             ticks=FALSE),
                # time bar
                uiOutput("time_bar"),
                # hierarchical grouping
@@ -174,12 +183,13 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
              # main panel
              mainPanel(h3("Temporal network of correlation"),
                        plotOutput("netp", width = "100%", height = "400px"),
-                       h4("Note:"),
+                       h5(icon("circle-info"), "Note on the Temporal Network Graph:"),
                        htmlOutput("mds_note1"),
+                       h5(icon("circle-info"), "Note on the Group Label Assignments:"),
                        htmlOutput("mds_note2"),
                        h3("Variable group summary:"),
                        div(align = "center", plotOutput("group_plot", width = "80%", height = "300px")),
-                       h4("Note:"),
+                       h5(icon("circle-info"), "Note of Group Summary Plots"),
                        htmlOutput("group_note")
                        )
              )),
@@ -188,9 +198,10 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
   tabPanel(title = "Integrated visualization",
            sidebarLayout(
              sidebarPanel(
-               sliderInput(inputId = "thres_cor2", 
-                           label = "Show correlation above:", min=0, max=1, value=1, step=0.01,
-                           ticks=FALSE),
+               # choose correlation type
+               selectInput("mtype2", label="Type of correlation/association", 
+                           choices = list("pearson", "spearman", "euclidean")),
+               uiOutput("thres_m2"),
                # weight
                checkboxInput("time_wt", label = "Weigh by time interval?", value = T),
                tagList(
@@ -211,7 +222,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                plotOutput("int_net"),
                h3("Integrated variable group summary:"),
                plotOutput("int_tree"),
-               h4("Note:"),
+               h5(icon("circle-info"), "Note on Integrated Network Plot and Group Label Assignment"),
                htmlOutput("int_note")
              )
            ))
@@ -404,6 +415,15 @@ server <- function(input, output) {
     # display
     p2
   })
+  ###### note
+  output$cor_trend_note <- renderText({
+    HTML("
+    <li>The node size indicates the number of complete pairs used to calculated correlation at each time point.</li>
+    <li>Correlation/association measures are very sensitive to sample size. If the number of complete pais is very small (i.e < 20), 
+    the calculated measures are less realiable and will affect downstream analysis.
+         User may consider removing these time points from the dataset </li>")
+  })
+  
   #### comparision of distribution and trend
   output$trend_p <- renderPlot({
     req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
@@ -498,7 +518,7 @@ server <- function(input, output) {
   observeEvent(input$confirm, {confirmed(input$select_var3)})
   df_net <- reactive({
     req(df(), input$id_var, input$time_var, confirmed())
-    df_net <- df()[, c(input$time_var, confirmed())] %>%
+    df()[, c(input$time_var, confirmed())] %>%
       rename(time = input$time_var) %>%
       filter(!if_all(confirmed(), is.na)) # remove empty columns
   })
@@ -585,29 +605,15 @@ server <- function(input, output) {
   })
   ## grouping
   group_list <- reactive({
-    req(input$hclust, input$nclust, coord_list())
+    req(input$hclust, coord_list())
       if(input$time_type == "Discrete"){
-        group_list <- HclustCoord(coord_list(), "dynamic", input$nclust)
+        group_list <- HclustCoord(coord_list(), "dynamic")
       } else {
-        group_list <- HclustCoord(coord_list(), "splines", input$nclust)
+        group_list <- HclustCoord(coord_list(), "splines")
       }
     group_list
   })
   ## plot
-  output$mds_note1 <- renderPrint({
-    req(input$time_type)
-    mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
-    HTML(paste0("This networkplot is generated by ", mds_type, " multidimentional scaling based on ", input$time_type, " time and ", input$cor_type, " correlation.
-            To change the type of time variable or correlation, please move back to the previous tab."))
-  })
-  # output$mds_note2 <- renderPrint({
-  #   HTML("
-  #   Observations may be excluded for the following reasons:
-  #       <li>Empty rows or columns</li>
-  #       <li>Less than two observations at any given time. Correlation is not realiable due to insufficiant sample. </li>
-  #        ")
-  # })
-
   output$netp <- renderPlot({
 
       withProgress(
@@ -665,7 +671,8 @@ server <- function(input, output) {
           
           # if did clustering, color by cluster
           if(input$hclust){
-            group_t <- group_list()[[tid]]
+            hclust_t <- group_list()[[tid]]
+            group_t <- cutree(hclust_t, input$nclust)
             node_col_t <- brewer.pal(input$nclust, "Accent")[group_t]
             V(net_t)$color <- node_col_t
           }
@@ -682,6 +689,15 @@ server <- function(input, output) {
     incProgress(1)}
     )
     })
+  # note
+  output$mds_note1 <- renderPrint({
+    mds_type <- ifelse(input$time_type=="Discrete", "Dynamic", "Splines")
+    HTML(paste0("This networkplot is generated by ", mds_type, " multidimentional scaling based on ", input$time_type, " time and ", input$cor_type, " correlation.
+            To change the type of time variable or correlation, please move back to the previous tab."))
+  })
+  output$mds_note2 <- renderPrint({
+    HTML("Group labels are estiamted based on a hierarchical clustering model fit on 2D coordinates. ")
+  })
     ## group label plot
   output$group_plot <- renderPlot({
     req(input$hclust, input$nclust, input$group_sum, group_list(), df_net(), input$group_plot, input$time_bar)
@@ -689,65 +705,44 @@ server <- function(input, output) {
     # time scale
     t_uniq <- sort(unique(df_net()[,"time"]))
     if(input$time_type == "Discrete"){
-      tid <- which(input$time_bar == t_uniq)
+      tgrid <- t_uniq
     } else {
-      t_uniq <-seq(min(t_uniq), max(t_uniq), by = min(diff(t_uniq)))
-      tid <- which(tgrid == input$time_bar)
+      tgrid <-seq(min(t_uniq), max(t_uniq), by = min(diff(t_uniq)))
     }
     # plot
-    if(input$group_plot == 1){
-        bind_rows(group_list(), .id = "time") %>%
-          mutate(time=t_uniq) %>%
-          pivot_longer(-time) %>%
-          mutate(value = as.factor(value), time = as.numeric(time)) %>%
-          ggplot(aes(x=time, stratum = value, fill=value, color=value, alluvium=name))+
-          geom_flow()+
-          geom_stratum()+
-          geom_vline(xintercept = input$time_bar)+
-          labs(x="Time", y = "Group", title = "Group flow chart")+
-          guides(fill=guide_legend("Group"), color=guide_legend("Group"))+
-          theme(legend.position = "bottom", axis.text.y = element_blank())+
-          scale_color_brewer(palette = "Accent")+
-          scale_fill_brewer(palette = "Accent")+
-          scale_x_continuous(breaks = tvec)
-    } else if(input$group_plot == 2){
-      bind_rows(group_label_list, .id = "time") %>%
-        mutate(time=tvec) %>%
-        pivot_longer(-time) %>%
-        mutate(value = as.factor(value), time = as.numeric(time)) %>%
-        ggplot(aes(x=time, y=name, fill=value))+
-        geom_tile(alpha=0.7)+
-        geom_vline(xintercept = input$time_bar)+
-        labs(x="Time", y = " ", fill = "Group", title = "Variable group assignment")+
-        theme(legend.position = "bottom")+
-        scale_fill_brewer(palette = "Accent")+
-        scale_x_continuous(breaks = tvec)
+    if(input$group_plot != 3){
+      sum_plot <- GroupSumFigure(group_list(), input$nclust, tgrid, plot_method = input$group_plot)
+      sum_plot <- sum_plot+
+        geom_vline(xintercept = input$time_bar)
+        
     } else{
-       ggdendrogram(group_list()[[tid]], rotate = T, size = 2)+
+       sum_plot <- ggdendrogram(group_list()[tgrid==input$time_bar][[1]],
+                    rotate = T, size = 2)+
             labs(title = paste0("Hierarchial group at time ", input$time_bar))
 
     }
+    sum_plot
   })
-  # ## note
-  # output$group_note <- renderText({
-  #   req(input$hclust)
-  #   if(input$group_plot==1){
-  #     HTML("
-  #       <li>This plot visualizes the change of group structure of variables over time using an <a href='https://corybrunson.github.io/ggalluvial/' target='_blank'>Alluvial plot</a></li>
-  #       <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
-  #       <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
-  #        ")
-  #   } else if(input$group_plot==2){
-  #     HTML("
-  #       <li>This plot visualizes the change of group assignment for each variable.</li>
-  #       <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
-  #       <li>Change of color indicates change of group assignments.</li>
-  #        ")
-  #   } else{ 
-  #     HTML("
-  #       <li>This plot visualizes the hierachical structure of variables at a specific time.</li>
-  #        ")}
-  #   })
+  ## note
+  output$group_note <- renderText({
+    req(input$hclust, input$nclust, input$group_sum, input$group_plot)
+    if(input$group_plot==1){
+      HTML("
+        <li>This plot visualizes the change of group structure of variables over time using an <a href='https://corybrunson.github.io/ggalluvial/' target='_blank'>Alluvial plot</a></li>
+        <li>Band with different colors represents different groups, and the width of band represents the size of group.</li>
+        <li>Band flow between different groups across time represents variables that moved from one group to the other, and the width of flow represents number of variables that made the switch.</li>
+         ")
+    } else if(input$group_plot==2){
+      HTML("
+        <li>This plot visualizes the change of group label assignment for each variable.</li>
+        <li>Each row represents a single variable, and the color represents the group it is assigned to at specific time points.</li>
+        <li>Change of color indicates change of group label assignments.</li>
+         ")
+    } else{
+      HTML("
+        <li>This plot visualizes the hierachical structure of variables at a specific time.</li>
+         ")}
+    })
   
  
   # tab 4: integrated correlation and grouping results
@@ -759,58 +754,81 @@ server <- function(input, output) {
   })
   confirmed2 <- reactiveVal(NULL)
   observeEvent(input$confirm2, {confirmed2(input$select_var4)})
- ## clustering
+  # dataset for analysis
+  df_net2 <- reactive({
+    req(df(), input$id_var, input$time_var, confirmed2())
+    df()[, c(input$time_var, confirmed2())] %>%
+      rename(time = input$time_var) %>%
+      filter(!if_all(confirmed2(), is.na)) # remove empty columns
+  })
+  # integrated dissimilarity matrix
+  int_diss <- reactive({
+    req(df_net2(), input$mtype2)
+    int_diss <- IntDissmMat(df_net2(), method = input$mtype2, weight = input$time_wt)
+    int_diss
+  })
+  # integrated adjacency matrix from dissimilarity matrix
+ int_adj <- reactive({
+    req(int_diss(), input$mtype2, input$thres_m2)
+    # adjacency matrix
+    if(input$mtype2=="euclidean"){
+      max_diss <- max(int_diss(), na.rm = T)
+      min_diss <- min(int_diss(), na.rm = T)
+      int_adj <- (max_diss-int_diss())/(max_diss-min_diss)
+      thres <- (max_diss-input$thres_m2)/(max_diss-min_diss)
+      int_adj[int_adj <= thres] <- 0
+    } else {
+      int_adj <- 1-int_diss()
+      int_adj[int_adj <= input$thres_m2] <- 0
+    }
+    int_adj
+  })
+  # correlation/association threshold
+  output$thres_m2 <- renderUI({
+    req(input$mtype2, int_diss())
+    if(input$mtype2 == "euclidean"){
+      diss_range <- round(range(int_diss(), na.rm = T))
+      sliderInput("thres_m2", label = "Show distance below",
+                  min = diss_range[1], max = diss_range[2], value = diss_range[1])
+    } else {
+      sliderInput("thres_m2", label = "Show correlation above",
+                  min =0, max = 1, value = 1)
+    }
+  })
+ # clustering
   output$nclust2 <- renderUI({
     req(input$hclust2)
     numericInput("nclust2", label = "Number of groups", value = 1)
   })
-  ## values for sanity checks: uniform or all missing across all time points
-  sanity_check2 <- reactive({
-    req(df(), input$id_var, input$time_var, input$select_var4, confirmed2())
-    unique_val <- df()[ , c(input$time_var, confirmed2())] %>%
-      rename(time = input$time_var) %>% group_by(time) %>%
-      summarize_all(~{length(unique(.))}) %>% ungroup() %>% 
-      summarise(across(everything(), ~all(.x==1, na.tm = T))) %>% 
-      select(where(isTRUE))
-    colnames(unique_val)
-  })
-  # integral adjacency matrix
-  int_adj_mat <- reactive({
-    req(df(), input$id_var, input$time_var, input$select_var4, confirmed2())
-    validate(need(length(sanity_check2())==0,
-                  paste("Correlation cannot be calculated due to empty or uniform columns at each time points, including ", 
-                         paste(sanity_check2(), collapse = ", "), ".", sep = " ")))
-    ave_adj <- GetIntAdjMat(df=df()[ , c(input$time_var, confirmed2())] %>% rename(time=input$time_var),
-                            adj = "Correlation",
-                            cor_method = input$cor_type,
-                            weight = input$time_wt)
-    ave_adj
-  })
+  # ## values for sanity checks: uniform or all missing across all time points
+  # sanity_check2 <- reactive({
+  #   req(df(), input$id_var, input$time_var, input$select_var4, confirmed2())
+  #   unique_val <- df()[ , c(input$time_var, confirmed2())] %>%
+  #     rename(time = input$time_var) %>% group_by(time) %>%
+  #     summarize_all(~{length(unique(.))}) %>% ungroup() %>% 
+  #     summarise(across(everything(), ~all(.x==1, na.tm = T))) %>% 
+  #     select(where(isTRUE))
+  #   colnames(unique_val)
+  # })
   ## coordinates
   int_coords <- reactive({
-    req(int_adj_mat())
-    mds(int_adj_mat())$conf
+    req(int_diss())
+    mds(int_diss())$conf
   })
   ## hierarchical clustering result
   int_hclust <- reactive({
-    req(int_adj_mat(), input$hclust2)
-    validate(need(length(sanity_check2())==0,
-                  paste("Correlation cannot be calculated due to empty or uniform columns at each time points, including ", 
-                        paste(sanity_check2(), collapse = ", "), ".", sep = " ")))
-    AveDis <- 1-int_adj_mat()
-    hclust(dist(AveDis))
+    req(int_diss())
+    hclust(as.dist(int_diss()))
   })
   ## network plot
   output$int_net <- renderPlot({
-    req(int_adj_mat(), input$thres_cor2, int_coords())
-    int_adj <- int_adj_mat()
-    int_adj[which(int_adj < input$thres_cor2)] <- 0
-    int_net <- graph_from_adjacency_matrix(int_adj, mode = "undirected", weighted = T, diag=F)
+    req(int_adj(), input$thres_m2, int_coords())
+    int_net <- graph_from_adjacency_matrix(int_adj(), mode = "undirected", weighted = T, diag=F)
     # edges
-    E(int_net)$width <- E(int_net)$weight*5
+    E(int_net)$width <- E(int_net)$weight*7
     # node properties
     V(int_net)$color <- rgb(0.2, 0.4, 0.8, alpha=0.4)
-    coords <- mds(int_adj_mat())$conf
+    coords <- int_coords()
     # if choose to visualize grouping results
     if(input$hclust2){
       clust_group <- cutree(int_hclust(), k = input$nclust2)
@@ -832,8 +850,7 @@ server <- function(input, output) {
   })
   ## note
   output$int_note <- renderPrint({
-    req(input$hclust2)
-    HTML(paste0("Both plots are generated based on the integerated ", input$cor_type, 
+    HTML(paste0("Both plots are generated based on the integerated ", input$mtype2, 
                 " correlation matrix. To change the type of correlation, please move back to the second tab."))
   })
   
