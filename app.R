@@ -759,7 +759,8 @@ server <- function(input, output) {
   output$varnames4 <- renderUI({
     req(df(), input$time_var, input$id_var)
     all_vars <- colnames(df() %>% select(!c(input$time_var, input$id_var)))
-    checkboxGroupInput("select_var4", label = "Variables", choices = all_vars, selected = all_vars)
+    checkboxGroupInput("select_var4", label = "Variables", 
+                       choices = all_vars, selected = all_vars)
   })
   confirmed2 <- reactiveVal(NULL)
   observeEvent(input$confirm2, {confirmed2(input$select_var4)})

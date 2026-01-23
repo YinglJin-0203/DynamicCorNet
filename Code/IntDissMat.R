@@ -9,9 +9,9 @@
 IntDissmMat <- function(df, method = "spearman", weight = T){
   diss_list <- SplDissimMat(df, method = method)
   diss_array <- simplify2array(diss_list)
+  t_uniq <- sort(unique(df$time))
   # weight 
   if(weight==T){
-    t_uniq <- sort(unique(df$time))
     wt <- diff(t_uniq)
     wt <- c(wt, 0) 
     wt <- wt/sum(wt)

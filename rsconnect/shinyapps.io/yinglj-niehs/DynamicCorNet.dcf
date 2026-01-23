@@ -5,9 +5,9 @@ account: yinglj-niehs
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 16066512
-bundleId: 11357571
+bundleId: 11481546
 url: https://yinglj-niehs.shinyapps.io/DynamicCorNet/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: DeleteLater.R
+ignoredFiles: CaseStudy/IFED.R|CaseStudy/Splcoords_euclidean.RData|CaseStudy/Splcoords_spearman.RData|CaseStudy/Splcoords.RData|DeleteLater.R|Notes.html|Notes.Rmd|README.md|Simulation/coord_miss_t200.RData|Simulation/Proflie_spMDS.R|Simulation/SimEdistance.R|Simulation/SimMiss.R|Simulation/SimTemp.R|data|images
