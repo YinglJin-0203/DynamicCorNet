@@ -354,7 +354,7 @@ server <- function(input, output) {
       arrange(time) %>%
       group_by(time) %>%
       summarize(N = sum(is.na(var)), 
-                Pct = sum(is.na(var))/length(var))
+                Pct = round(sum(is.na(var))/length(var), 2))
     colnames(df_miss) <- c(input$time_var, "N", "%")
     datatable(df_miss) %>%
       formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
@@ -414,8 +414,7 @@ server <- function(input, output) {
       ggplot()+
       geom_point(aes(x=time, y=cor, size = Npair))+
       geom_line(aes(x=time, y=cor))+
-      labs(title = "Empirical correlation", x = input$time_var, y = " ",
-           alpha = "% of complete pairs", size = "% of complete pairs")+
+      labs(title = "Empirical correlation", x = input$time_var, y = " ", size = "Proportion of complete pairs")+
       theme(legend.position = "bottom")+
       guides(color = guide_legend(order = 1), 
              size = guide_legend(order = 1))
@@ -687,6 +686,10 @@ server <- function(input, output) {
           }
           
           # plot
+          par(
+            mar = c(5, 4, 4, 2) + 0.1,  # extra space at bottom
+            xpd = NA                   # allow drawing outside plot region
+          )
           plot(net_t,
            layout = coord_t,
            vertex.frame.color=V(net_t)$color,
@@ -694,6 +697,21 @@ server <- function(input, output) {
            vertex.label.cex=1,
            vertex.size = 20,
            margin = 0)
+          # legend
+          if(input$time_type == "Continuous"){
+            legend(
+              "bottom",
+              inset = -0.15, 
+              legend = c("Present variables", "Unmeasured variables"),
+              pch = 21,
+              pt.bg = c(rgb(0.2, 0.4, 0.8, alpha=0.4), "white"),
+              pt.cex = 2,
+              col = rgb(0.2, 0.4, 0.8, alpha=0.4),
+              horiz = TRUE,
+              ncol = 2,
+              bty = "n"
+            )
+          }
           
     incProgress(1)}
     )
