@@ -5,7 +5,7 @@ account: yinglj-niehs
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 16066512
-bundleId: 11485338
+bundleId: 11502792
 url: https://yinglj-niehs.shinyapps.io/DynamicCorNet/
 version: 1
 asMultiple: FALSE
