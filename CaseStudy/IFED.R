@@ -26,7 +26,7 @@ source(here("Code/Stress.R"))
 
 #### Dynamic MDS with euclidean distance ####
 
-df_org <- read.csv("Data/IFEDDemoData.csv")
+# df_org <- read.csv("Data/IFEDDemoData.csv")
 df <- df_org %>% select(-ID, -Length, -Weight.for.age, -Height.for.age, 
                     -Weight.for.height, -Length, -Bud.bead.diameter,
                     -Age.at.exam) %>% 
@@ -86,7 +86,7 @@ image_write(DynMDS_educlidean_all, path = "images/CaseStudy/DynMDS_euclidean_all
 
 #### Splines MDS ####
 
-df_org <- read.csv("Data/IFEDDemoData.csv")
+# df_org <- read.csv("Data/IFEDDemoData.csv")
 df <- df_org %>% select(-ID, -Week) %>% 
   rename(time=Age.at.exam)
 

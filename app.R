@@ -20,6 +20,8 @@ library(ggalluvial)
 library(ggdendro)
 library(mgcv)
 library(igraph)
+library(ggplot2)
+library(ggpubr)
 
 theme_set(theme_minimal())
 
@@ -727,7 +729,7 @@ server <- function(input, output) {
   output$legend_note <- renderPrint({
     HTML("
 <ul style='padding-left: 0; margin-left: 0; list-style-position: inside;'>
- Variables are visualized as vertices. At the current time point:
+ Variables are visualized as vertices. LAt the current time point:
   <li>Filled vertices indicate observed variables.</li>
   <li>Empty circle vertices indicate variables that are unobserved across the whole dataset.</li>
 </ul>

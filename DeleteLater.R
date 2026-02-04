@@ -1,5 +1,5 @@
 
-df <- read.csv("Data/IFEDDemoData.csv")
+# df <- read.csv("Data/IFEDDemoData.csv")
 df <- df %>% select(-ID, -Age.at.exam) %>% 
   rename(time=Week)
 
@@ -28,5 +28,3 @@ class(group_list[tvec==1][[1]])
 
 dendro_data(group_list[tvec==1])
 
-?ggdendrogram()
-ggdendrogram(group_list[tvec == 1]
