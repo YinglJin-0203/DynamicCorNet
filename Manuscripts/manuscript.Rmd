@@ -67,7 +67,7 @@ The Infant Feeding and Early Development (IFED) study [@Adgent2018IFED] is an NI
 The IFED data is a typical example of the multivariate temporal data structure, where multiple variables are repeatedly collected over time.
 Although the repeated measures can be collected from the same individual, the timing of collection procedures are not aligned, and at each visit there are significant proportion of missing values. Therefore, the actual effective sample changes across time and at each visit. The physical exam is the most consistent procedure, implemented at every scheduled visit with small number of missing values. Ultrasound, on the other hand, is scheduled every other visit, with over 50\% missing values at most scheduled visits. Depending on how the time variable is coded, the inconsistency can impose challenge to data exploration. For example, when the "time" information is coded as "age in days after birth", mostly time points have only a few observations, causing correlation or association measures at this specific time points unreliable. If there are only two complete pairs between two variables, the correlation will always be 1, which is clearly not an accurate representation. 
 
-## Functionalities
+## Functionalities {#sec:func}
 
 The mlEDA Shiny App guides user through a series of operations to explore a full dataset. The entire work flow is briefly summarized in Figure \ref{fig:workflow}. Each step corresponds to a tab in the shiny app with funcionalities focusing on certain aspects of the dataset, such as descriptive graphs for univariate distribution and bivariate correlation, multivariate structure and time evolution. All tabs in mlEDA consists of a input panel on the left and an output panel on the right. The former for user inputs, and the later for analytical output following user operation. 
 
@@ -151,10 +151,10 @@ As in Section \ref{sec:intro}, exploratory analysis methods for multivariate lon
 
 Essentially, MDS generates variable layout by estimating a set of low-diensional coordinates that mimics the high-dimensional matrix (i.e. correlation) as much as possible. Specifically, for a dataset $\mathbf{X}$ with P variables $X_1$, ..., $X_P$ at a specific time point, the relationship between variables will be represented by a P-dimensional matrix: $\Sigma(\mathbf{X}) = \{\rho_{lp}\}$, where $\rho_{lp}$ is the relationship between $\mathbf{X_l}$ and $\mathbf{X_p}$. There are many options for this relationship measure. The mlEDA app temporarily supports three: Pearson correlation, Spearman correlation and euclidean distance. MDS will transform this higher-dimensional into a "dissimilarity" matrix: $\symbf{\Delta} = \{\delta_{lp}\}$, with the method of transformation dependent on the chosen measure. For correlation, $\delta_{lp} = 1-|\rho_{lp}|$. Euclidean distance on the other hand can be a dissimilarity measure itself and needs no more transformation. 
 
-The next step is to project the higher-dimensional dissimilarity  $\{\Delta}$ onto a 2D surface. A variable $X_p$ is represented by two coordinates $(c_{p1}, c_{p2})$ indicating horizontal and vertical positions respectively. The distance between any pair of variables, given their coordinates, can be easily calculated: $d_{lp} = \sqrt{(c_{l1}-c_{p1})^2+(c_{l2}-c_{p2})^2}$. The matrix of pairwise Euclidean distance is a P by P matrix: $\mathbf{D}= \{d_{lp}\}$. Since we would like the geometrical distance to reflect higher-dimensional measures, this problems comes down to minimizing the difference between $\mathbf{\Delta}$ and $\mathbf{D}$. This leads to the stress loss function\cite{kruskal1964}: 
+The next step is to project the higher-dimensional dissimilarity  $\symbf{\Delta}$ onto a 2D surface. A variable $X_p$ is represented by two coordinates $(c_{p1}, c_{p2})$ indicating horizontal and vertical positions respectively. The distance between any pair of variables, given their coordinates, can be easily calculated: $d_{lp} = \sqrt{(c_{l1}-c_{p1})^2+(c_{l2}-c_{p2})^2}$. The matrix of pairwise Euclidean distance is a P by P matrix: $\mathbf{D}= \{d_{lp}\}$. Since we would like the geometrical distance to reflect higher-dimensional measures, this problems comes down to minimizing the difference between $\symbf{\Delta}$ and $\mathbf{D}$. This leads to the stress loss function\cite{kruskal1964}: 
 
 \begin{equation}
-    Stress(\mathbf{C}) = \frac{||\bm{\Delta} - \mathbf{D}||^2}{||\bm{\Delta}||^2}.
+    Stress(\mathbf{C}) = \frac{||\symbf{\Delta} - \mathbf{D}||^2}{||\symbf{\Delta}||^2}.
     \label{eq:stress}
 \end{equation}
 
@@ -169,39 +169,47 @@ Note that the MDS algorithm alone does not consider time changes. The classic al
 One way to achieve visual stability over time is to minimize the change of layout between adjacent time points. This leads us to the Dynamic MDS methods by [@xu2012], which impose penalization on the coordinate change between all adjacent slices. The loss function in this case is penalized stress below: 
 
 \begin{equation}
- Loss(\mathbf{C}) = \sum_{t}\frac{||\bm{\Delta}_t - \mathbf{D}_t||^2}{||\bm{\Delta}_t||^2}+
+ Loss(\mathbf{C}) = \sum_{t}\frac{||\symbf{\Delta}_t - \mathbf{D}_t||^2}{||\symbf{\Delta}_t||^2}+
  \lambda ||\mathbf{C}_t-\mathbf{C}_{t-1}||^2.
-    \label{eq:dMDSloss}   
+    \label{eq:dMDSloss}
 \end{equation}
 
-This method is very straightfoward and works well on datasets with low measurement density. As an example, when we use "week" as time in the IFED dataset, there are 12 unique time points, leading to 12 sets of coordinates to estimated. However, the computation time increases exponentially with measurement grid density and quickly becomes unfeasible. Our simulation shows a dataset with 100 unique repeated measures can take up to 2.5 hours to generate a compete graph.
+This method is very straightforward and works well on datasets with low measurement density. As an example, when we use "week" as time in the IFED dataset, there are 12 unique time points, leading to 12 sets of coordinates to estimated. However, the computation time increases exponentially with measurement grid density and quickly becomes unfeasible. Our simulation shows a dataset with 100 unique repeated measures can take up to 2.5 hours to generate a compete graph.
 
-In addition to computational burden, this method also works poorly with the presence of missing values, or when the measurement grids are different across variables. Unfortunately, both issues are very common in practice. In the IFED datasets, the three procedures are not scheduled in conjunction. Office visits and sample collection are scheduled twice as frequent as ultrasounds. At time points when growth measures and hormones are present but ultrasounds are complete missing, the relationship between ultrasounds and other measures cannot be calculated, and these variables cannot be visualized. The corresponding vertices, as a consequence, will appear and disappear from the graph repeatedly, causing visual disorientation. During each procedure, there are also sometimes large proportion of missing values. For example, Estradiol has consistently high proportion of missing, with over 20\% missing at all time points. When implemented on such datasets, Dynamic MDS often fail to generate stable visualization even with heavy penalization. This is because missing values cannot contribute to the penalization and thus cannot influence the generated layout. 
+In addition to computational burden, this method also works poorly with the presence of missing values, or when the measurement grids are different across variables. Unfortunately, both issues are very common in practice. In the IFED datasets, the three procedures are not scheduled in conjunction. Office visits and sample collection are scheduled twice as frequent as ultrasounds. From Equation 
+\ref{eq:dMDSloss} we can see that only vertices that are present in both adjacent time points can be counted into the penalization. At time points when growth measures and hormones are present but ultrasounds are complete missing, the relationship between ultrasounds and other measures cannot be calculated, and these variables cannot be visualized. The corresponding vertices, as a consequence, will appear and disappear from the graph repeatedly, causing visual disorientation. During each procedure, there are also sometimes large proportion of missing values. For example, Estradiol has consistently high proportion of missing, with over 20% missing at all time points. When implemented on such datasets, Dynamic MDS often fail to generate stable visualization even with heavy penalization. This is because missing values cannot contribute to the penalization and thus cannot influence the generated layout.
 
 ### Splines MDS
 
-While the relationship between variables changes with time, we can also assume this evolution to be a smooth process over time. It follows that its lower-dimensional representation will also be a 
+While the relationship between variables changes with time, we can also assume this evolution to be a smooth process over time. It follows that its lower-dimensional representation will also be a smooth process, represented by the smooth change over time of vertex coordinates $\mathbf{C}_t = (c_{p1}(t), c_{p2}(t))$, where $p = 1....P$. A natural choise is to model the coordinates using spline basis functions:
 
- Following these assumptions, we also model the layout of the correlation network graph as continuous processes, and enhance stability by penalize the "smoothness" of layout over time.
+\begin{equation}
+\begin{aligned}
+c_{p1}(t) &= \sum_{k=1}^K \xi_{pk}\phi_k(t) = \symbf{\xi}_p \mathbf{\Phi}(t) \\
+c_{p2}(t) &= \sum_{k=1}^K \zeta_{pk} \phi_k(t) = \symbf{\zeta}_p \mathbf{\Phi}(t)
+\end{aligned}
+\end{equation}
 
-As the previous section, the layout of the network graphed is mathematically expressed by the coordinates of vertices. We can model them as smooth functions over time using spline basis functions: 
+The position of the vertex indicating variable $X_p$ will then change smoothly with t, determined by parameters $\symbf{\xi}_p$ and $\symbf{\zeta}_p$.It follows that the lower dimensional representation $\mathbf{D}$ will be a collection of the smooth coordinates: $\symbf{D}(t, \symbf{\xi}, \symbf{\zeta}) = \{\mathbf{c}_p(t), p = 1...P\}$. And the stress function can be written as $Stress(\mathbf{C}(t, \symbf{\xi}, \symbf{\zeta})) = \frac{||\symbf{\Delta}_t - \mathbf{D}(t)||^2}{||\symbf{\Delta}_t||^2}$.
 
-<!-- \begin{align} -->
-<!-- \mathbf{c}_p(t) &= (c_{p1}(t), c_{p2}(t)) \label{eq:smooth_coord} \\ -->
-<!-- c_{p1}(t) &= \sum_{k=1}^K \xi_{pk}\phi_k(t) = \mathbf{\xi}_p \mathbf{\Phi}(t) \nonumber \\ -->
-<!-- c_{p2}(t) &= \sum_{k=1}^K \zeta_{pk} \phi_k(t) = \mathbf{\zeta}_p \mathbf{\Phi}(t) \nonumber.  -->
-<!-- \end{align} -->
+Following these assumptions, the stability of layout can be controlled by penalizing the "smoothness" of coordinate functions, such as their second derivatives:
 
-The position of the vertex indicating variable $X_p$ will then change smoothly with t, determined by parameters $\mathbf{\xi}_p$ and $\mathbf{\zeta}_p$. It follows that the lower dimensional representation $\mathbf{D}$ will be a collection of the smooth coordinates in \eqref{eq:smooth_coord}: $\mathbf{D}(t, \mathbf{\xi}, \mathbf{\zeta}) = \{\mathbf{c}_p(t), p = 1...P\}$. And the stress function can be written as $Stress(\mathbf{C}(t, \mathbf{\xi}, \mathbf{\zeta})) = \frac{||\mathbf{\Delta}_t - \mathbf{D}(t)||^2}{||\mathbf{\Delta}_t||^2}$. 
+\begin{equation}
+\begin{aligned}
+    Loss(\symbf{\xi}, \symbf{\zeta}) = \int_t Stress(\symbf{C}(t, \symbf{\xi}, \symbf{\zeta})) + \sum_{p=1}^P\lambda(\symbf{\xi}_p+\symbf{\zeta}_p)\symbf{\Phi}''
+    \label{eq:SPLloss}
+\end{aligned}
+\end{equation}
 
-Since the coordinates are constructed using spline basis functions, it is possible to improve temporal stability by adding smoothness penalization. For example, we can add a second derivative penalization:
+Splines MDS layout estimated by minimizing Equation \ref{eq:SPLloss} has a few advantages over the Dynamic MDS approach. First of all, the Spliens basis functions are shared across variables. Threrfore, the vertex coordinates computed here is determined by spline basis coefficients $\symbf{\xi}_p, \symbf{\zeta}_p$, which are time-independent. With irregular measurement grid, although some variables can be completely missing at some time points, their layout could still be computed in a consistent manner. The mlEDA app support this function and annotates the completely missing variables with unfilled circles instead of solid nodes. This keeps all variables in the plot and thus makes the plot more visually stable, revealing smooth, gradual structural evolution over time. 
 
-<!-- \begin{align} -->
-<!--     Loss(\mathbf{\xi}, \mathbf{\zeta}) = \int_t Stress(\mathbf{C}(t, \mathbf{\xi}, \mathbf{\zeta})) + \sum_{p=1}^P\lambda(\mathbf{\xi}_p+\mathbf{\zeta}_p)\mathbf{\Phi}'' -->
-<!--     \label{eq:SPLloss} -->
-<!-- \end{align} -->
+In addition, with the measurement grid is dense, the loss function \ref{eq:SPLloss} is a lot more efficient to minimize, because it estimates a lot less parameters and also can be parallzied oever time. In the IFED dataset with age as time, the different of computation time between Dynamic and Splines MDS is a few hours versus a few minutes. When the density of data makes Dynamic MDS infeasible, Splines MDS will be the only choice for visualization. 
 
-From the Spline MDS loss function in \eqref{eq:SPLloss}, we can see this approach has an advantage over the Dynamic MDS approach when measurement grid is different across variables. Specifically, the layout of network computed here is determined by spline basis coefficients $\mathbf{\xi}_p, \mathbf{\zeta}_p$, which are time-independent. Although variables could be unmeasured at certain times, their layout could still be computed in a consistent manner. In addition, this loss function can also be factored by time, which makes parallelization easier and thus improves efficiency.  
+# Case Study {#sec:case_study}
+
+In this case study, we apply the mlEDA app to our motivational dataset and demonstrate its use and efficiency in a practical setting. Recall Section \ref{sec:funt} has discussed the different ways of perceiving time-discrete versus continuous. The appropriate choice depends on the data structure and analytically context, and is often up to user discretion. In the mlEDA app, this choice is made on the first descriptives tab (Tab 2.1) and will affect downstream analysis, especially the method used to generate the Dynamic Correlation and Association graph. Therefore, we use two different time variables in IFED as time to demonstrate the two different workflows. Visit scheduled by weeks after birth will be the discrete time variables, with 12 unique values range from 1 to 36 with uneven distribution. The age of infants, recorded as days after birth, will be the continuous time variable, with 191 unique values also unevenly spaced from 0 to 278. In fact, visit week can be considered as binned age in days.
+
+We use a subset of all the measures collected and removed other measures due to duplication or high-colinearity. The dataset of interest includes basic growth measures, such as age-adjusted BMI, head circumference and anogentital measures, hormones and volume measures of reproductive organs derived from ultrasound. The investigators are particularly interested in variables relationship regarding hormones and hoping to make inferences of the underlying biological process by examining the change of correlation between hormones and other meausres. Through out this section, Spearman correlation will be used for the relationship measure between variables. It is nonparametric with straightforward interpretation and also popularly used for practice. 
 
 
 

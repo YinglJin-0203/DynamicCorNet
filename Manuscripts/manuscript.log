@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.2.10)  10 FEB 2026 16:01
+This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.2.10)  11 FEB 2026 11:58
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -748,8 +748,7 @@ Package: bookmark 2023-12-10 v1.31 PDF bookmarks (HO)
 (/Users/jiny8/Library/TinyTeX/texmf-dist/tex/latex/bookmark/bkm-dvipdfm.def
 File: bkm-dvipdfm.def 2023-12-10 v1.31 bookmark driver for dvipdfm (HO)
 \BKM@id=\count363
-))
-No file manuscript.aux.
+)) (./manuscript.aux)
 \openout1 = `manuscript.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 124.
@@ -1034,9 +1033,6 @@ Package caption Info: Begin \AtBeginDocument code.
 Package caption Info: hyperref package is loaded.
 Package caption Info: End \AtBeginDocument code.
 Package hyperref Info: Link coloring OFF on input line 124.
-
-Package hyperref Warning: Rerun to get /PageLabels entry.
-
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(1)/m/n' will be
 (Font)              scaled to size 12.0pt on input line 126.
 LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(1)/m/n' will be
@@ -1074,18 +1070,30 @@ File: ot1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 126.
 (/Users/jiny8/Library/TinyTeX/texmf-dist/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+) (./manuscript.toc
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(1)/m/n' will be
+(Font)              scaled to size 7.0pt on input line 2.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(1)/m/n' will be
+(Font)              scaled to size 5.0pt on input line 2.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 10.00092pt on input line 2.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 7.00064pt on input line 2.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
+(Font)              scaled to size 5.00046pt on input line 2.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 9.99893pt on input line 2.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 6.99925pt on input line 2.
+LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
+(Font)              scaled to size 4.99947pt on input line 2.
 )
-No file manuscript.toc.
 \tf@toc=\write4
 \openout4 = `manuscript.toc'.
 
 [1
 
-] [2]
-
-LaTeX Warning: Reference `sec:intro' on page 3 undefined on input line 155.
-
-[3]
+] [2] [3]
 
 LaTeX Warning: Reference `fig:workflow' on page 4 undefined on input line 166.
 
@@ -1102,69 +1110,49 @@ File: ../Manuscripts/Appshots/tab2.1.1.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.1.1.png>
 File: ../Manuscripts/Appshots/tab2.1.2.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.1.2.png>
+[5] [6]
 File: ../Manuscripts/Appshots/tab2.2.1.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.2.1.png>
 File: ../Manuscripts/Appshots/tab2.2.2.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.2.2.png>
-[5] [6]
 File: ../Manuscripts/AppShots/tab2.3.png Graphic file (type bmp)
 <../Manuscripts/AppShots/tab2.3.png>
 
-LaTeX Warning: Reference `sec:mds' on page 7 undefined on input line 212.
-
-
 LaTeX Warning: Reference `fig-tab3' on page 7 undefined on input line 212.
 
+[7]
 File: ../Manuscripts/Appshots/tab3.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab3.png>
-
-LaTeX Warning: Reference `fig:fig-tab3' on page 7 undefined on input line 223.
-
-
-LaTeX Warning: Reference `sec:mds' on page 7 undefined on input line 223.
-
-[7]
-
-LaTeX Warning: Reference `fig:fig-tab4' on page 8 undefined on input line 227.
-
+[8] [9]
 File: ../Manuscripts/Appshots/tab4.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab4.png>
-[8] [9] [10]
+[10]
 
-LaTeX Warning: Reference `sec:intro' on page 11 undefined on input line 244.
+LaTeX Warning: Citation `kruskal1964' on page 11 undefined on input line 248.
 
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(1)/m/n' will be
-(Font)              scaled to size 7.0pt on input line 246.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(1)/m/n' will be
-(Font)              scaled to size 5.0pt on input line 246.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 10.00092pt on input line 246.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 7.00064pt on input line 246.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(2)/m/n' will be
-(Font)              scaled to size 5.00046pt on input line 246.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 9.99893pt on input line 246.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 6.99925pt on input line 246.
-LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
-(Font)              scaled to size 4.99947pt on input line 246.
-! Extra }, or forgotten $.
-l.248 ...her-dimensional dissimilarity \(\{\Delta}
-                                                  \) onto a 2D surface. A va...
-I've deleted a group-closing symbol because it seems to be
-spurious, as in `$x}$'. But perhaps the } is legitimate and
-you forgot something else, as in `\hbox{$x}'. In such cases
-the way to recover is to insert both the forgotten and the
-deleted material, e.g., by typing `I$}'.
+[11]
+Missing character: There is no 𝛷 (U+1D6F7) in font [lmroman10-bold]:mapping=tex-text;!
+Missing character: There is no 𝛷 (U+1D6F7) in font [lmroman10-bold]:mapping=tex-text;!
+[12]
 
- 
+LaTeX Warning: Reference `sec:funt' on page 13 undefined on input line 304.
+
+[13] [14] (./manuscript.aux)
+ ***********
+LaTeX2e <2025-11-01>
+L3 programming layer <2026-01-19>
+ ***********
+
+LaTeX Warning: There were undefined references.
+
+ ) 
 Here is how much of TeX's memory you used:
- 29746 strings out of 470190
- 594074 string characters out of 5477943
- 1121394 words of memory out of 5000000
- 57870 multiletter control sequences out of 15000+600000
+ 29816 strings out of 470190
+ 595305 string characters out of 5477943
+ 1126053 words of memory out of 5000000
+ 57934 multiletter control sequences out of 15000+600000
  655747 words of font info for 109 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
- 90i,8n,114p,2520b,577s stack positions out of 10000i,1000n,20000p,200000b,200000s
-Output written on manuscript.pdf (10 pages).
+ 90i,8n,114p,2520b,609s stack positions out of 10000i,1000n,20000p,200000b,200000s
+
+Output written on manuscript.pdf (14 pages).
