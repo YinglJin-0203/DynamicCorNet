@@ -103,7 +103,8 @@ df_sim_temp2 <- bind_rows(df_sim_temp2)
 
 # save data
 # saveRDS(df_sim_temp2, file = paste0("data/SimData/df_sim_temp2_t", nt, ".rds"))
-
+df_sample <- df_sim_temp2
+write.csv(df_sample, file="../SampleData/df_sample.csv", row.names = F)
 ##### introduce irregular missing #####
 
 # group 1 random missing at 1/2 of the time
