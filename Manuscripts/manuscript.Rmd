@@ -57,17 +57,35 @@ Other R packages, although not explicitly for correlation, have been developed t
 
 Another shortcoming of existing EDA tools is their lack of coherence and interactivity. Each analysis methods are often implemented in isolation, producing single figure or summary statistics reflecting only a small component of the entire dataset. In practice, we often desire an integrated view of the entire dataset, especially with multiple variables across multiple time. Cross-reference across different components of data is frequently needed but not sufficiently supported by the existing exploratory analysis scheme. A more fluid, interactive workflow could release these operation burdens and thus improve efficiency of analysis. It can also overcome interdisciplinary communication barrier when accompanied with intuitive representation. Existing literature has demonstrated the preference toward interactive tools [@Lakkaraju2022]. Unfortunately, development in this areas has been sparse, with existing work largely restricted to non-exploratory modeling or univariate and bivariate summary [@EpiStatKit], or generative AI applications based on black-box deep learning.
 
+
+# Motivational dataset {#sec:data}
+
+<!-- introduce data -->
+<!-- Significance of data -->
+<!-- importance of study on the correlation between hormones, growth -->
+    <!-- influence growth, body composition, neurobehavioral development -->
+    <!-- early detection and treatment of disorders, like Klinefelter syndrome, Turner syndrome -->
+
+This section introduces the motivational dataset that will be used through out this manuscript for demonstration purposes, in both Section \ref{sec:app} to explain the mlEDA workflow and functionaliies, and Section \ref{sec:case_study} for a data application exmaple to illustrate its practical unitlity. This dataset was collected by the Infant Feeding and Early Development (IFED) study [@Adgent2018IFED], an NIH-funded longitudinal observational study of infant development after birth. Although it recruited both boys and girls, different biological sexes are often analyzed separately due to the essential difference in early development process. For this paper, we use the subset of 136 girls followed from birth to 36 weeks. The participants are followed up through routine clinical visits every 2-4 weeks. In each visit, the participants went through one or more of the following procedures: 1) physical examination; 2) specimen collection; and 3) ultrasounds. Each procedures collected multiple measures. Physical examination collected basic growth information such as height, weight, head circumference, as well as manually measured reproductive development, such as anogenital and bud bead size. Blood specimen collected hormones measures including FSH, estradiol and testosterone. Ultrasound collected organ size, including thyroid, uterus, ovary and bud bead. 
+
+
+
+<!-- challenges -->
+  <!-- In girls, reproductive hormones and organ development unclear -->
+  <!-- FSH did not start low and increase, but it might be because we couldn't tell placental hormones apart?  -->
+<!-- literature review -->
+  <!-- Inconsistent in timing -->
+  <!-- Not really sure about the roles of FSH and LH in early life? -->
+
+The IFED data is a typical example of the multivariate temporal data structure, where multiple variables are repeatedly collected over time.
+Although the repeated measures can be collected from the same individual, the timing of collection procedures are not aligned, and at each visit there are significant proportion of missing values. Therefore, the actual effective sample changes across time and at each visit. The physical exam is the most consistent procedure, implemented at every scheduled visit with small number of missing values. Ultrasound, on the other hand, is scheduled every other visit, with over 50\% missing values at most scheduled visits. Depending on how the time variable is coded, the inconsistency can impose challenge to data exploration. For example, when the "time" information is coded as "age in days after birth", mostly time points have only a few observations, causing correlation or association measures at this specific time points unreliable. If there are only two complete pairs between two variables, the correlation will always be 1, which is clearly not an accurate representation. 
+
 # The TempNet App {#sec:app}
 
 <!-- % potential names: Tnet, TemporalNet, TempoNet -->
 To address the challenges in Section \ref{sec:intro}, we have created TempNet, a web-based application designed for interactive, standardized exploratory analysis workflow of multivariate temporal dataset. This application is an integration of classical EDA components and novel multidimensional visualization scheme. It also has the ability to visualize temporal evolution dynamically and intuitively to human vision. Moreover, it guides users through an comprehensive analytical workflow with interactive operations. Its usage requires minimal technical background or coding experience, thus desirable for the interdisciplinary collaboration settings. This section will demonstrate the functionalities of TempNet in details, using the the Infant Feeding and Early Development (IFED) study [@Adgent2018IFED] as a motivational example. The same dataset will also serve as a case study example in Section {#sec:case}. 
 
-## Motivational dataset
 
-The Infant Feeding and Early Development (IFED) study [@Adgent2018IFED] is an NIH-funded longitudinal observational study of infant development after birth. Although it recruited both boys and girls, different biological sexes are often analyzed separately due to the essential difference in early development process. For this paper, we use the subset of 136 girls followed from birth to 36 weeks. The participants are followed up through routine clinical visits every 2-4 weeks. In each visit, the participants went through one or more of the following procedures: 1) physical examination; 2) specimen collection; and 3) ultrasounds. Each procedures collected multiple measures. Physical examination collected basic growth information such as height, weight, head circumference, as well as manually measured reproductive development, such as anogenital and bud bead size. Blood specimen collected hormones measures including FSH, estradiol and testosterone. Ultrasound collected organ size, including thyroid, uterus, ovary and bud bead. 
-
-The IFED data is a typical example of the multivariate temporal data structure, where multiple variables are repeatedly collected over time.
-Although the repeated measures can be collected from the same individual, the timing of collection procedures are not aligned, and at each visit there are significant proportion of missing values. Therefore, the actual effective sample changes across time and at each visit. The physical exam is the most consistent procedure, implemented at every scheduled visit with small number of missing values. Ultrasound, on the other hand, is scheduled every other visit, with over 50\% missing values at most scheduled visits. Depending on how the time variable is coded, the inconsistency can impose challenge to data exploration. For example, when the "time" information is coded as "age in days after birth", mostly time points have only a few observations, causing correlation or association measures at this specific time points unreliable. If there are only two complete pairs between two variables, the correlation will always be 1, which is clearly not an accurate representation. 
 
 ## Functionalities {#sec:func}
 
