@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.2.10)  11 FEB 2026 15:24
+This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.2.10)  24 FEB 2026 15:57
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1095,22 +1095,30 @@ LaTeX Font Info:    Font shape `TU/latinmodern-math.otf(3)/m/n' will be
 
 ] [2] [3]
 
-LaTeX Warning: Reference `fig:workflow' on page 4 undefined on input line 166.
+LaTeX Warning: Reference `@Chin2023' on page 4 undefined on input line 157.
 
+File: ../Manuscripts/CaseStudy/IFED_miss.png Graphic file (type bmp)
+<../Manuscripts/CaseStudy/IFED_miss.png>
+
+LaTeX Warning: Reference `##sec:case' on page 4 undefined on input line 167.
+
+
+LaTeX Warning: Reference `fig:workflow' on page 4 undefined on input line 171.
+
+[4]
 File: ../Manuscripts/AppShots/tab1.png Graphic file (type bmp)
 <../Manuscripts/AppShots/tab1.png>
-[4]
+[5]
 
-LaTeX Warning: Reference `fig:tab2.1.1' on page 5 undefined on input line 186.
+LaTeX Warning: Reference `fig:tab2.1.1' on page 6 undefined on input line 191.
 
 
-LaTeX Warning: Reference `fig:tab2.1.2' on page 5 undefined on input line 186.
+LaTeX Warning: Reference `fig:tab2.1.2' on page 6 undefined on input line 191.
 
 File: ../Manuscripts/Appshots/tab2.1.1.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.1.1.png>
 File: ../Manuscripts/Appshots/tab2.1.2.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.1.2.png>
-[5] [6]
 File: ../Manuscripts/Appshots/tab2.2.1.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.2.1.png>
 File: ../Manuscripts/Appshots/tab2.2.2.png Graphic file (type bmp)
@@ -1118,27 +1126,27 @@ File: ../Manuscripts/Appshots/tab2.2.2.png Graphic file (type bmp)
 File: ../Manuscripts/AppShots/tab2.3.png Graphic file (type bmp)
 <../Manuscripts/AppShots/tab2.3.png>
 
-LaTeX Warning: Reference `fig-tab3' on page 7 undefined on input line 212.
+LaTeX Warning: Reference `fig-tab3' on page 6 undefined on input line 217.
 
-[7]
+[6] [7] [8]
 File: ../Manuscripts/Appshots/tab3.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab3.png>
-[8] [9]
+[9]
 File: ../Manuscripts/Appshots/tab4.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab4.png>
 [10]
 
-LaTeX Warning: Citation `kruskal1964' on page 11 undefined on input line 248.
+LaTeX Warning: Citation `kruskal1964' on page 11 undefined on input line 253.
 
 [11]
 Missing character: There is no 𝛷 (U+1D6F7) in font [lmroman10-bold]:mapping=tex-text;!
 Missing character: There is no 𝛷 (U+1D6F7) in font [lmroman10-bold]:mapping=tex-text;!
 [12]
 
-LaTeX Warning: Reference `sec:funt' on page 13 undefined on input line 304.
+LaTeX Warning: Reference `sec:funt' on page 13 undefined on input line 309.
 
 
-LaTeX Warning: Reference `fig:ifed_dcan' on page 13 undefined on input line 308.
+LaTeX Warning: Reference `fig:ifed_dcan' on page 13 undefined on input line 313.
 
 File: manuscript_files/figure-latex/ifed_dcan-1.pdf Graphic file (type pdf)
 <use manuscript_files/figure-latex/ifed_dcan-1.pdf>
@@ -1152,10 +1160,10 @@ LaTeX Warning: There were undefined references.
 
  ) 
 Here is how much of TeX's memory you used:
- 29827 strings out of 470190
- 595789 string characters out of 5477943
- 1125054 words of memory out of 5000000
- 57943 multiletter control sequences out of 15000+600000
+ 29853 strings out of 470190
+ 596682 string characters out of 5477943
+ 1131226 words of memory out of 5000000
+ 57967 multiletter control sequences out of 15000+600000
  655747 words of font info for 109 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  90i,8n,114p,2520b,609s stack positions out of 10000i,1000n,20000p,200000b,200000s
