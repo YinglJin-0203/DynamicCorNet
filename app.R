@@ -330,7 +330,7 @@ server <- function(input, output) {
         filter(complete.cases(.)) %>%
         ggplot()+
         geom_line(aes(x=time, y=var, group=id), alpha = 0.5, linewidth = 0.5)+
-        geom_smooth(aes(x=time, y=var), method = gam, formula = y~s(x))+
+        geom_smooth(aes(x=time, y=var), na.rm = T)+
         labs(x=input$time_var, y = input$select_var1,
              title = paste0("Distribution and temporal trend of ", input$select_var1))
     }
