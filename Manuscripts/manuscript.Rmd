@@ -226,6 +226,13 @@ Most physical growth measures, including head circumference and anogenital measu
 
 <!-- Pairwise correlation -->
 
+The correlation between most growth measures are low and stable over time, flunctuating around 0.25. Head circumference and BMI showed stable moderate correlation (0.5), and the two anogential measures (FA and anterior) showed slowly increasing correlation from rougly 0.2 to 0.55 over the 1st and 24th week. The correlation between hormone concentrations are weaker, flunctuating across zero throughout follow-up. The correlation between estradiol showed a brief increase from 0.25 to 0.5 during week 4-8, but the soons decreased back to zero at week 16. In terms of reproduce organ volumes, some showed slight increase of correlation over the first few weeks. The correlation between ovary and uterus increased from 0.1 to 0.25 during the first few weeks. Similar for bud bead and uterus, their correlation increased to 0.3 during the first 8 weeks. Both correlation then decrease slowly to about week 24. Ovary and bud bead volume, on the other had did not show the initial correlation increase. Their correlation stayed at around 0.25 until week 16, followed by a slight decrease. The pairwise correlation between growth measures and hormones are generally close to zero wit small fluctuations. Anterior anogenital measures seemed to have a big correlation change (from 0 to 0.3) at the end of study period (week 28-36). The correlation between hormone concentrations and reproductive organ volumes are more uncertain, which is partly due to the inconsistency in procedure schedule and missing observations. The correlation is generally week, with the exception of FSH and ovary value, which showed moderate negative correlation (-0.5-0.6) throughout the study period. FSH and uterus has been weakly correlated (~-0.25), until week 24 when correlation reduced to zero. Estradiol and uterus showed a quick increase from 0 to 0.5 during the first 8 weeks, followed by decrease in the next 8 weeks.  
+
+# notes: only week 4, 16, 24, 32
+
+
+
+
 <!-- Network graph -->
 
 

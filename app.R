@@ -154,7 +154,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                            plotOutput("trend_p")
                          ))),
               ## subtab 2.3: overall
-              tabPanel(title = "Overall",
+              tabPanel(title = "Multivariate",
                          sidebarLayout(
                            sidebarPanel(
                              selectInput("cor_type2", label="Type of correlation",
@@ -164,7 +164,8 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                                em("Correlation measures may be unrealiable when the proportion of missing is large!")
                              ),
                              br(), br(),
-                             uiOutput("time_bar1")),
+                             uiOutput("time_bar1"),
+                             uiOutput("varnames2_3")),
                            mainPanel(
                              h3("Correlation heatmap"),
                              plotOutput("heatmap")
@@ -501,12 +502,20 @@ server <- function(input, output) {
     }
     
   })
+  output$varnames2_3 <- renderUI({
+    req(df())
+    var_choice <-  colnames(df() %>% select(!c(input$time_var, input$id_var)))
+    checkboxGroupInput("select_var2_3", label = "Variables", 
+                        choices = var_choice, var_choice)
+  })
+  
   output$heatmap <- renderPlot({
-    req(df(), input$time_var, input$id_var, input$cor_type2)
+    req(df(), input$time_var, input$id_var, input$cor_type2, input$select_var2_3)
     ## correlation matrix
     cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
                            filter(time==input$time_bar1), 
-                         select = -c(id, time)), method = input$cor_type2, use = "pairwise.complete.obs")
+                         select = input$select_var2_3), 
+                  method = input$cor_type2, use = "pairwise.complete.obs")
     ## heatmap
     data.frame(cormat) %>% rownames_to_column("var1") %>%
       pivot_longer(-var1) %>%
@@ -625,7 +634,7 @@ server <- function(input, output) {
     if(input$time_type == "Discrete"){
            DynamicMDS(diss_mat(), lambda = 5)
     } else {
-        SplinesMDS(diss_mat(), lambda = 7, P = ncol(df_net())-1, tvec = t_uniq)
+        SplinesMDS(diss_mat(), lambda = 3, P = ncol(df_net())-1, tvec = t_uniq)
       # in this case, coord_list includes initial coordinates and cofficients
   }
   })
