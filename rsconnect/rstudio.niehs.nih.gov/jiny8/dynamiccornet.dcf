@@ -1,0 +1,13 @@
+name: dynamiccornet
+title: DynamicCorNet
+username: jiny8
+account: jiny8
+server: rstudio.niehs.nih.gov
+hostUrl: https://rstudio.niehs.nih.gov/__api__
+appId: 462
+bundleId: 1852
+url: https://rstudio.niehs.nih.gov/content/25e1a59c-4c17-4ccd-9687-8965bfbfe97e/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: CaseStudy/IFED.R|CaseStudy/Splcoords_euclidean.RData|CaseStudy/Splcoords_spearman.RData|CaseStudy/Splcoords.RData|Notes.html|Notes.Rmd|README.md|SampleData/Simulation.R|Simulation/coord_miss_t200.RData|Simulation/Proflie_spMDS.R|Simulation/SimEdistance.R|Simulation/SimMiss.R|Simulation/SimTemp.R|data|images|Manuscripts

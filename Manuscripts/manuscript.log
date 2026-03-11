@@ -1,4 +1,4 @@
-This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.2.10)  3 MAR 2026 13:46
+This is XeTeX, Version 3.141592653-2.6-0.999997 (TeX Live 2025) (preloaded format=xelatex 2026.2.10)  11 MAR 2026 13:47
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1106,12 +1106,6 @@ LaTeX Warning: Reference `fig:workflow' on page 5 undefined on input line 171.
 File: ../Manuscripts/AppShots/tab1.png Graphic file (type bmp)
 <../Manuscripts/AppShots/tab1.png>
 [5]
-
-LaTeX Warning: Reference `fig:tab2.1.1' on page 6 undefined on input line 191.
-
-
-LaTeX Warning: Reference `fig:tab2.1.2' on page 6 undefined on input line 191.
-
 File: ../Manuscripts/Appshots/tab2.1.1.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.1.1.png>
 File: ../Manuscripts/Appshots/tab2.1.2.png Graphic file (type bmp)
@@ -1120,28 +1114,21 @@ File: ../Manuscripts/Appshots/tab2.2.1.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.2.1.png>
 File: ../Manuscripts/Appshots/tab2.2.2.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab2.2.2.png>
-[6] [7]
 File: ../Manuscripts/AppShots/tab2.3.png Graphic file (type bmp)
 <../Manuscripts/AppShots/tab2.3.png>
-
-LaTeX Warning: Reference `fig-tab3' on page 8 undefined on input line 217.
-
+[6] [7] [8]
 File: ../Manuscripts/Appshots/tab3.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab3.png>
-[8]
+[9]
 File: ../Manuscripts/Appshots/tab4.png Graphic file (type bmp)
 <../Manuscripts/Appshots/tab4.png>
-[9] [10] [11]
-
-LaTeX Warning: Citation `kruskal1964' on page 12 undefined on input line 253.
-
-[12]
+[10] [11]
 Missing character: There is no 𝛷 (U+1D6F7) in font [lmroman10-bold]:mapping=tex-text;!
 Missing character: There is no 𝛷 (U+1D6F7) in font [lmroman10-bold]:mapping=tex-text;!
-[13]
-File: manuscript_files/figure-latex/ifed_dcan-1.pdf Graphic file (type pdf)
-<use manuscript_files/figure-latex/ifed_dcan-1.pdf>
-[14] [15] [16] (./manuscript.aux)
+[12] [13]
+File: manuscript_files/figure-latex/ifed-dcan-1.pdf Graphic file (type pdf)
+<use manuscript_files/figure-latex/ifed-dcan-1.pdf>
+[14] [15] [16] [17] (./manuscript.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-01-19>
@@ -1151,12 +1138,12 @@ LaTeX Warning: There were undefined references.
 
  ) 
 Here is how much of TeX's memory you used:
- 29855 strings out of 470190
- 596736 string characters out of 5477943
- 1131294 words of memory out of 5000000
- 57969 multiletter control sequences out of 15000+600000
+ 29854 strings out of 470190
+ 596730 string characters out of 5477943
+ 1136413 words of memory out of 5000000
+ 57968 multiletter control sequences out of 15000+600000
  655747 words of font info for 109 fonts, out of 8000000 for 9000
  14 hyphenation exceptions out of 8191
  90i,8n,114p,2520b,609s stack positions out of 10000i,1000n,20000p,200000b,200000s
 
-Output written on manuscript.pdf (16 pages).
+Output written on manuscript.pdf (17 pages).

@@ -634,7 +634,7 @@ server <- function(input, output) {
     if(input$time_type == "Discrete"){
            DynamicMDS(diss_mat(), lambda = 5)
     } else {
-        SplinesMDS(diss_mat(), lambda = 3, P = ncol(df_net())-1, tvec = t_uniq)
+        SplinesMDS(diss_mat(), lambda = 7, P = ncol(df_net())-1, tvec = t_uniq)
       # in this case, coord_list includes initial coordinates and cofficients
   }
   })
