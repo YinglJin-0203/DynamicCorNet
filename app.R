@@ -63,7 +63,7 @@ source(here("Code/IntDissMat.R"))
 
 # UI includes the following elements
 # visualization threshold of correlation
-ui <- navbarPage(title = "Temporal network visualization of multidimensional data",
+ui <- navbarPage(title = "Multivariate Longitudinal Exploratory Data Analysis",
   
   # tab 1: data upload and prespecifications
   tabPanel(title = "Data upload and preview",
@@ -129,7 +129,7 @@ ui <- navbarPage(title = "Temporal network visualization of multidimensional dat
                                    dataTableOutput("miss_npct_tb", width = "70%"))
               )),
               ## subtab 2.2: pairwise
-              tabPanel(title = "Pairwise",
+              tabPanel(title = "Bivariate",
                        # side bar
                        sidebarLayout(
                         sidebarPanel( # correlation type
