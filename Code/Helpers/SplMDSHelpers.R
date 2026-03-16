@@ -1,5 +1,70 @@
 ##### Stress function at one time point #####
 
+.splmds_env <- new.env(parent = emptyenv())
+
+.splmds_init_rcpp <- function() {
+  if (!is.null(.splmds_env$cpp_ready)) {
+    return(invisible(.splmds_env$cpp_ready))
+  }
+  
+  .splmds_env$cpp_ready <- FALSE
+  
+  if (!requireNamespace("Rcpp", quietly = TRUE)) {
+    return(invisible(FALSE))
+  }
+  
+  code <- '
+  #include <Rcpp.h>
+  using namespace Rcpp;
+  
+  // [[Rcpp::export]]
+  double splmds_stress_from_coords_cpp(NumericVector c1,
+                                       NumericVector c2,
+                                       NumericVector diss_vec) {
+    const int n = c1.size();
+    const int expected = n * (n - 1) / 2;
+    if (diss_vec.size() != expected) {
+      stop("diss_vec length does not match lower-triangle size");
+    }
+    
+    double num = 0.0;
+    double den = 0.0;
+    int k = 0;
+    for (int i = 1; i < n; ++i) {
+      const double x_i = c1[i];
+      const double y_i = c2[i];
+      for (int j = 0; j < i; ++j) {
+        const double dx = x_i - c1[j];
+        const double dy = y_i - c2[j];
+        const double dist = std::sqrt(dx * dx + dy * dy);
+        const double d = diss_vec[k++];
+        const double r = d - dist;
+        num += r * r;
+        den += d * d;
+      }
+    }
+    return std::sqrt(num / den);
+  }
+  '
+  
+  Rcpp::cppFunction(code = code, env = .splmds_env)
+  .splmds_env$cpp_ready <- TRUE
+  invisible(TRUE)
+}
+
+.splmds_stress_from_coords <- function(c1, c2, diss_vec, use_rcpp = TRUE) {
+  if (use_rcpp) {
+    .splmds_init_rcpp()
+    if (isTRUE(.splmds_env$cpp_ready) && exists("splmds_stress_from_coords_cpp", envir = .splmds_env, inherits = FALSE)) {
+      f_cpp <- get("splmds_stress_from_coords_cpp", envir = .splmds_env, inherits = FALSE)
+      return(f_cpp(c1, c2, diss_vec))
+    }
+  }
+  
+  dist_t <- as.vector(stats::dist(cbind(c1, c2), method = "euclidean", diag = FALSE, upper = FALSE))
+  sqrt(sum((diss_vec - dist_t)^2) / sum(diss_vec^2))
+}
+
 #' Calculate stress at one time point
 #'
 #' @param t current time index
@@ -12,27 +77,25 @@
 #' @param Xmat 
 #' @param Xmat2dev 
 #' @param lower_idx optional vector of lower-triangle indices for `diss_t`
+#' @param use_rcpp logical; if TRUE and Rcpp is available, use C++ stress kernel
 #'
 #' @returns Stress loss at a certain time points
 
 SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P, 
                             init_coord, lambda, Xmat, Xmat2dev,
-                            lower_idx = NULL){
+                            lower_idx = NULL, use_rcpp = TRUE) {
   
   # calculates coordinates at t (P by 2)
   x_t <- Xmat[t, ]
   c1 <- init_coord[, 1] + as.vector(xi1 %*% x_t)
   c2 <- init_coord[, 2] + as.vector(xi2 %*% x_t)
   
-  # pairwise euclidean distance (lower triangle only)
-  dist_t <- as.vector(stats::dist(cbind(c1, c2), method = "euclidean", diag = FALSE, upper = FALSE))
-  
   # Kruskal stress
   if (is.null(lower_idx)) {
     lower_idx <- which(lower.tri(diss_t, diag = FALSE))
   }
   diss_vec <- diss_t[lower_idx]
-  stress_t <- sqrt(sum((diss_vec - dist_t)^2) / sum(diss_vec^2))
+  stress_t <- .splmds_stress_from_coords(c1 = c1, c2 = c2, diss_vec = diss_vec, use_rcpp = use_rcpp)
   
   # penalization
   x_t_2dev <- Xmat2dev[t, ]
@@ -56,6 +119,7 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
 #' @param Xmat 
 #' @param Xmat2dev 
 #' @param diss_vec_list optional precomputed lower-triangle dissimilarities
+#' @param use_rcpp logical; if TRUE and Rcpp is available, use C++ stress kernel
 #'
 #' @returns
 #' @export
@@ -63,7 +127,7 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
 #' @examples
 stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P, 
                           init_coord, lambda, Xmat, Xmat2dev,
-                          diss_vec_list = NULL) {
+                          diss_vec_list = NULL, use_rcpp = TRUE) {
   K <- ncol(Xmat)
   xi1 <- matrix(xi_vec[1:(P * K)], nrow = P)
   xi2 <- matrix(xi_vec[(P * K + 1):(P * K * 2)], nrow = P)
@@ -86,12 +150,20 @@ stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P,
   if (is.null(diss_vec_list)) {
     diss_vec_list <- lapply(dissim_list, function(x) x[lower_idx])
   }
-
+  
+  if (use_rcpp) {
+    .splmds_init_rcpp()
+  }
+  
   stress <- numeric(n_t)
   for (i in seq_len(n_t)) {
-    dist_t <- as.vector(stats::dist(cbind(c1_all[, i], c2_all[, i]), diag = FALSE, upper = FALSE))
     diss_vec <- diss_vec_list[[i]]
-    stress[i] <- sqrt(sum((diss_vec - dist_t)^2) / sum(diss_vec^2)) + penal_vec[i]
+    stress[i] <- .splmds_stress_from_coords(
+      c1 = c1_all[, i],
+      c2 = c2_all[, i],
+      diss_vec = diss_vec,
+      use_rcpp = use_rcpp
+    ) + penal_vec[i]
   }
   
   return(sum(stress, na.rm = TRUE))
