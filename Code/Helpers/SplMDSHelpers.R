@@ -1,6 +1,6 @@
 ##### Stress function at one time point #####
 
-.splmds_env <- new.env(parent = emptyenv())
+.splmds_env <- new.env(parent = baseenv())
 
 .splmds_init_rcpp <- function() {
   if (!is.null(.splmds_env$cpp_ready)) {
@@ -47,9 +47,14 @@
   }
   '
   
-  Rcpp::cppFunction(code = code, env = .splmds_env)
-  .splmds_env$cpp_ready <- TRUE
-  invisible(TRUE)
+  ok <- TRUE
+  tryCatch({
+    Rcpp::cppFunction(code = code, env = .splmds_env)
+  }, error = function(e) {
+    ok <<- FALSE
+  })
+  .splmds_env$cpp_ready <- ok
+  invisible(ok)
 }
 
 .splmds_stress_from_coords <- function(c1, c2, diss_vec, use_rcpp = TRUE) {
