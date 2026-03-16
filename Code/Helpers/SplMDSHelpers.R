@@ -70,7 +70,7 @@
 #' @param t current time index
 #' @param xi1 
 #' @param xi2 
-#' @param diss_t P by P matrix, disimilarity list at time t
+#' @param diss_t P by P matrix, dissimilarity matrix at time t
 #' @param P number of variables
 #' @param init_coord P by 2 matrix indicating the initialized coordinates
 #' @param lambda 
@@ -79,10 +79,8 @@
 #' @param lower_idx optional vector of lower-triangle indices for `diss_t`
 #' @param use_rcpp logical; if TRUE and Rcpp is available, use C++ stress kernel
 #'
-#' @returns
-#' @export
-#'
-#' @examples
+#' @returns Stress loss at a certain time points
+
 SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P, 
                             init_coord, lambda, Xmat, Xmat2dev,
                             lower_idx = NULL, use_rcpp = TRUE) {
