@@ -19,6 +19,7 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
                             init_coord, lambda, Xmat, Xmat2dev,
                             lower_idx = NULL){
   
+  # calculates coordinates at t (P by 2)
   x_t <- Xmat[t, ]
   c1 <- init_coord[,1] + as.vector(xi1 %*% x_t)
   c2 <- init_coord[,2] + as.vector(xi2 %*% x_t)
