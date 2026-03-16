@@ -21,57 +21,61 @@
 #' @export
 #'
 #' @examples
-SplinesMDS <- function(dis_mat, lambda, P, tvec){
+SplinesMDS <- function(dis_mat, lambda, P, tvec) {
+  n_time <- length(tvec)
+  tid <- seq_len(n_time) # time index
   
-  tid <- seq_along(tvec) # time index
+  if (length(dis_mat) != n_time) {
+    stop("`dis_mat` and `tvec` must have the same length")
+  }
   
   # initial layout at the first time slice
   # variables missing at the first slice: random position
   init_dis <- dis_mat[[1]]
-  init_dis[is.na(init_dis)] <- runif(sum(is.na(init_dis)))
-  init_coord <- mds(init_dis, ndim=2)
-  init_coord <- init_coord$conf
+  if (anyNA(init_dis)) {
+    init_dis[is.na(init_dis)] <- runif(sum(is.na(init_dis)))
+  }
+  init_coord <- mds(init_dis, ndim = 2)$conf
   
-  # spline basis 
-  ## knots
-  # if(length(tvec) < 32){
-  #   internal_knot <- tvec[-c(1, length(tvec))]
-  # } else{
-  #   internal_knot <- seq(min(tvec), max(tvec), length.out = 32)
-  #   internal_knot <- internal_knot[-c(1, 32)]
-  # }
-  # design matrix
-  # Xmat <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 0, Boundary.knots = range(tvec))
-  # Xmat2dev <- bSpline(tvec, knots = internal_knot, degree = 2, derivs = 2, Boundary.knots = range(tvec))
-  # K <- ncol(Xmat)
-  tknots <- seq(min(tvec), max(tvec), by = min(diff(tvec)))
-  Xmat <- bSpline(tknots, df = 5, degree = 2, derivs = 0)
-  Xmat2dev <- bSpline(tknots, df = 5, degree = 2, derivs = 2)
+  # spline basis at observed time points
+  t_input <- as.numeric(tvec)
+  spline_df <- min(5L, n_time)
+  Xmat <- bSpline(t_input, df = spline_df, degree = 2, derivs = 0)
+  Xmat2dev <- bSpline(t_input, df = spline_df, degree = 2, derivs = 2)
   K <- ncol(Xmat)
   
-  # Optimize with regard to 
-  final_xi_vec <- optim(
-    par = rnorm(P*K*2), 
+  # Precompute lower-triangle dissimilarities once for optimization loop
+  lower_idx <- which(lower.tri(matrix(FALSE, nrow = P, ncol = P), diag = FALSE))
+  diss_vec_list <- lapply(dis_mat, function(x) x[lower_idx])
+
+  # Optimize with regard to spline coefficients
+  init_par <- stats::rnorm(P * K * 2)
+  final_xi_vec <- stats::optim(
+    par = init_par,
     fn = stress_SplMDS,
     dissim_list = dis_mat,
-    P = P, tid_vec = tid, lambda = lambda, init_coord = init_coord,
-    method = "BFGS", control = list(maxit=500),
-    Xmat = Xmat, Xmat2dev = Xmat2dev)
+    P = P,
+    tid_vec = tid,
+    lambda = lambda,
+    init_coord = init_coord,
+    method = "BFGS",
+    control = list(maxit = 500),
+    Xmat = Xmat,
+    Xmat2dev = Xmat2dev,
+    diss_vec_list = diss_vec_list
+  )
   
   # output coefficients and design matrix
-  xi1 <- matrix(final_xi_vec$par[1: (P*K)], nrow = P)
-  xi2 <- matrix(final_xi_vec$par[(P*K+1): (P*K*2)], nrow = P)
+  xi1 <- matrix(final_xi_vec$par[1:(P * K)], nrow = P)
+  xi2 <- matrix(final_xi_vec$par[(P * K + 1):(P * K * 2)], nrow = P)
   rownames(xi1) <- rownames(xi2) <- rownames(dis_mat[[1]])
   
-  coefs <- list(init_coord = init_coord, 
-                xi1 = xi1, 
-                xi2 = xi2,
-                Xmat = Xmat)
-  # Xmat <- bs(tid, df = 20)
-  # c1 <- init_coord[,1] + xi1 %*% t(Xmat)
-  # c2 <- init_coord[,2] + xi2 %*% t(Xmat)
-  # coords <- lapply(tid, function(x){return(data.frame(c1 = c1[ , x], 
-  #                                                     c2 = c2[ , x]))})
+  coefs <- list(
+    init_coord = init_coord,
+    xi1 = xi1,
+    xi2 = xi2,
+    Xmat = Xmat
+  )
   
   return(coefs)
 }
