@@ -11,13 +11,15 @@
 #' @param lambda 
 #' @param Xmat 
 #' @param Xmat2dev 
+#' @param lower_idx optional vector of lower-triangle indices for `diss_t`
 #'
 #' @returns
 #' @export
 #'
 #' @examples
 SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P, 
-                            init_coord, lambda, Xmat, Xmat2dev){
+                            init_coord, lambda, Xmat, Xmat2dev,
+                            lower_idx = NULL){
   
   # calculates coordinates at t (P by 2)
   x_t <- Xmat[t, ]
@@ -29,8 +31,11 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
   dist_t <- as.vector(stats::dist(coord_t, method = "euclidean", diag = FALSE, upper = FALSE))
   
   # Kruskal stress
-  diss_t <- diss_t[lower.tri(diss_t, diag = FALSE)]
-  stress_t <- sqrt(sum((diss_t - dist_t)^2) / sum(diss_t^2))
+  if (is.null(lower_idx)) {
+    lower_idx <- which(lower.tri(diss_t, diag = FALSE))
+  }
+  diss_vec <- diss_t[lower_idx]
+  stress_t <- sqrt(sum((diss_vec - dist_t)^2) / sum(diss_vec^2))
   
   # penalization
   x_t_2dev <- Xmat2dev[t, ]
@@ -73,20 +78,27 @@ stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P,
                           init_coord, lambda, Xmat, Xmat2dev){
   
   K <- ncol(Xmat)
-  xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
-  xi2 = matrix(xi_vec[(P*K+1): (P*K*2)], nrow = P)
+  xi1 <- matrix(xi_vec[1:(P * K)], nrow = P)
+  xi2 <- matrix(xi_vec[(P * K + 1):(P * K * 2)], nrow = P)
   
+  lower_idx <- which(lower.tri(matrix(FALSE, nrow = P, ncol = P), diag = FALSE))
+  n_t <- length(tid_vec)
+  stress <- numeric(n_t)
   
-  stress <- mapply(SplMDS_stress_t, 
-                   tid_vec, dissim_list,
-                   MoreArgs = list(
-                   xi1=xi1, xi2=xi2, 
-                   P = P,
-                   init_coord=init_coord,
-                   lambda = lambda,
-                   Xmat = Xmat, 
-                   Xmat2dev = Xmat2dev))
-  stress <- sum(stress, na.rm = T)
+  for (i in seq_len(n_t)) {
+    stress[i] <- SplMDS_stress_t(
+      t = tid_vec[i],
+      xi1 = xi1,
+      xi2 = xi2,
+      diss_t = dissim_list[[i]],
+      P = P,
+      init_coord = init_coord,
+      lambda = lambda,
+      Xmat = Xmat,
+      Xmat2dev = Xmat2dev,
+      lower_idx = lower_idx
+    )
+  }
   
-  return(stress)
+  return(sum(stress, na.rm = TRUE))
 }
