@@ -15,23 +15,29 @@ SplDissimMat <- function(data, method = "spearman") {
     stop("`data` must contain a `time` column")
   }
   
-  # preprocess: scale feature columns once and split by original time values
-  time_vec <- data$time
   feature_names <- setdiff(names(data), "time")
+  if (length(feature_names) == 0L) {
+    stop("`data` must contain at least one feature column besides `time`")
+  }
+  
+  # preprocess once
+  time_fac <- as.factor(data$time)
+  split_idx <- split(seq_len(nrow(data)), time_fac)
   feature_mat <- as.matrix(data[feature_names])
   storage.mode(feature_mat) <- "double"
   feature_mat <- scale(feature_mat, center = TRUE, scale = TRUE)
-  data_by_time <- split(as.data.frame(feature_mat), time_vec, drop = TRUE)
   
   # dissimilarity computation per time point
   if (mid <= 2L) {
-    dis_mat <- lapply(data_by_time, function(x) {
+    dis_mat <- lapply(split_idx, function(idx) {
+      x <- feature_mat[idx, , drop = FALSE]
       cor_mat <- stats::cor(x, method = method, use = "pairwise.complete.obs")
       1 - abs(cor_mat)
     })
   } else {
-    dis_mat <- lapply(data_by_time, function(x) {
-      as.matrix(stats::dist(t(as.matrix(x))))
+    dis_mat <- lapply(split_idx, function(idx) {
+      x <- feature_mat[idx, , drop = FALSE]
+      as.matrix(stats::dist(t(x)))
     })
   }
   

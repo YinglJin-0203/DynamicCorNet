@@ -44,6 +44,10 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec) {
   Xmat2dev <- bSpline(t_input, df = spline_df, degree = 2, derivs = 2)
   K <- ncol(Xmat)
   
+  # Precompute lower-triangle dissimilarities once for optimization loop
+  lower_idx <- which(lower.tri(matrix(FALSE, nrow = P, ncol = P), diag = FALSE))
+  diss_vec_list <- lapply(dis_mat, function(x) x[lower_idx])
+
   # Optimize with regard to spline coefficients
   init_par <- stats::rnorm(P * K * 2)
   final_xi_vec <- stats::optim(
@@ -57,7 +61,8 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec) {
     method = "BFGS",
     control = list(maxit = 500),
     Xmat = Xmat,
-    Xmat2dev = Xmat2dev
+    Xmat2dev = Xmat2dev,
+    diss_vec_list = diss_vec_list
   )
   
   # output coefficients and design matrix

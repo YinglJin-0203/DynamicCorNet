@@ -21,12 +21,11 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
   
   # calculates coordinates at t (P by 2)
   x_t <- Xmat[t, ]
-  c1 <- init_coord[,1] + as.vector(xi1 %*% x_t)
-  c2 <- init_coord[,2] + as.vector(xi2 %*% x_t)
+  c1 <- init_coord[, 1] + as.vector(xi1 %*% x_t)
+  c2 <- init_coord[, 2] + as.vector(xi2 %*% x_t)
   
   # pairwise euclidean distance (lower triangle only)
-  coord_t <- cbind(c1, c2)
-  dist_t <- as.vector(stats::dist(coord_t, method = "euclidean", diag = FALSE, upper = FALSE))
+  dist_t <- as.vector(stats::dist(cbind(c1, c2), method = "euclidean", diag = FALSE, upper = FALSE))
   
   # Kruskal stress
   if (is.null(lower_idx)) {
@@ -41,11 +40,8 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
   penal_c2 <- sum((xi2 %*% x_t_2dev)^2)
   penal_t <- lambda * (penal_c1 + penal_c2)
   
-  loss <- stress_t + penal_t
-  
-  return(loss)
+  return(stress_t + penal_t)
 }
-
 
 ##### Over all stress #####
 
@@ -59,35 +55,43 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
 #' @param lambda 
 #' @param Xmat 
 #' @param Xmat2dev 
+#' @param diss_vec_list optional precomputed lower-triangle dissimilarities
 #'
 #' @returns
 #' @export
 #'
 #' @examples
 stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P, 
-                          init_coord, lambda, Xmat, Xmat2dev){
-  
+                          init_coord, lambda, Xmat, Xmat2dev,
+                          diss_vec_list = NULL) {
   K <- ncol(Xmat)
   xi1 <- matrix(xi_vec[1:(P * K)], nrow = P)
   xi2 <- matrix(xi_vec[(P * K + 1):(P * K * 2)], nrow = P)
   
-  lower_idx <- which(lower.tri(matrix(FALSE, nrow = P, ncol = P), diag = FALSE))
   n_t <- length(tid_vec)
-  stress <- numeric(n_t)
+  lower_idx <- which(lower.tri(matrix(FALSE, nrow = P, ncol = P), diag = FALSE))
   
+  # Precompute all coordinates at once: P x n_t matrices
+  c1_all <- xi1 %*% t(Xmat[tid_vec, , drop = FALSE])
+  c2_all <- xi2 %*% t(Xmat[tid_vec, , drop = FALSE])
+  c1_all <- sweep(c1_all, 1L, init_coord[, 1], `+`)
+  c2_all <- sweep(c2_all, 1L, init_coord[, 2], `+`)
+  
+  # Precompute penalty terms across all time points
+  z1 <- xi1 %*% t(Xmat2dev[tid_vec, , drop = FALSE])
+  z2 <- xi2 %*% t(Xmat2dev[tid_vec, , drop = FALSE])
+  penal_vec <- lambda * (colSums(z1^2) + colSums(z2^2))
+  
+  # Stress term per time point
+  if (is.null(diss_vec_list)) {
+    diss_vec_list <- lapply(dissim_list, function(x) x[lower_idx])
+  }
+
+  stress <- numeric(n_t)
   for (i in seq_len(n_t)) {
-    stress[i] <- SplMDS_stress_t(
-      t = tid_vec[i],
-      xi1 = xi1,
-      xi2 = xi2,
-      diss_t = dissim_list[[i]],
-      P = P,
-      init_coord = init_coord,
-      lambda = lambda,
-      Xmat = Xmat,
-      Xmat2dev = Xmat2dev,
-      lower_idx = lower_idx
-    )
+    dist_t <- as.vector(stats::dist(cbind(c1_all[, i], c2_all[, i]), diag = FALSE, upper = FALSE))
+    diss_vec <- diss_vec_list[[i]]
+    stress[i] <- sqrt(sum((diss_vec - dist_t)^2) / sum(diss_vec^2)) + penal_vec[i]
   }
   
   return(sum(stress, na.rm = TRUE))
