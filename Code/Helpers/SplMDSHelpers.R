@@ -11,41 +11,39 @@
 #' @param lambda 
 #' @param Xmat 
 #' @param Xmat2dev 
+#' @param lower_idx optional vector of lower-triangle indices for `diss_t`
 #'
 #' @returns
 #' @export
 #'
 #' @examples
 SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P, 
-                            init_coord, lambda, Xmat, Xmat2dev){
+                            init_coord, lambda, Xmat, Xmat2dev,
+                            lower_idx = NULL){
   
   # calculates coordinates at t (P by 2)
-  K <- ncol(Xmat) # splines dimension
-  c1 <- init_coord[,1] + xi1 %*% Xmat[t, ]
-  c2 <- init_coord[,2] + xi2 %*% Xmat[t, ]
-  # c1 <- c1[,1]
-  # c2 <- c2[,1]
+  x_t <- Xmat[t, ]
+  c1 <- init_coord[,1] + as.vector(xi1 %*% x_t)
+  c2 <- init_coord[,2] + as.vector(xi2 %*% x_t)
   
-  # pariwise euclidean distance
-  # dist_t <-as.matrix(dist(cbind(c1,c2), diag = T, upper = T)) # dist() is a o(n^2) operation
-  # dist_t <- sqrt(outer(c1, c1, "-")^2 + outer(c2, c2, "-")^2)
-  # dist_t <- Rfast::Dist(cbind(c1, c2))
-  dist_t <- fields::rdist(cbind(c1, c2), cbind(c1, c2), compact = T)
-  dist_t <- dist_t[lower.tri(dist_t)]
-  # dist_t <- Matrix::tril(dist_t, 0)
+  # pairwise euclidean distance (lower triangle only)
+  coord_t <- cbind(c1, c2)
+  dist_t <- as.vector(stats::dist(coord_t, method = "euclidean", diag = FALSE, upper = FALSE))
   
   # Kruskal stress
-  # diss_t <- dissim_list[[t]]
-  # diss_t <- Matrix::tril(diss_t, 0)
-  diss_t <- diss_t[lower.tri(diss_t)]
-  stress_t <- sqrt(sum((diss_t-dist_t)^2)/sum(diss_t^2))
+  if (is.null(lower_idx)) {
+    lower_idx <- which(lower.tri(diss_t, diag = FALSE))
+  }
+  diss_vec <- diss_t[lower_idx]
+  stress_t <- sqrt(sum((diss_vec - dist_t)^2) / sum(diss_vec^2))
   
   # penalization
-  penal_c1 <- sum((xi1 %*% Xmat2dev[t, ])^2)
-  penal_c2 <- sum((xi2 %*% Xmat2dev[t, ])^2)
-  penal_t <- lambda*(penal_c1+penal_c2)
+  x_t_2dev <- Xmat2dev[t, ]
+  penal_c1 <- sum((xi1 %*% x_t_2dev)^2)
+  penal_c2 <- sum((xi2 %*% x_t_2dev)^2)
+  penal_t <- lambda * (penal_c1 + penal_c2)
   
-  loss = stress_t+penal_t
+  loss <- stress_t + penal_t
   
   return(loss)
 }
@@ -80,20 +78,27 @@ stress_SplMDS <- function(xi_vec, tid_vec, dissim_list, P,
                           init_coord, lambda, Xmat, Xmat2dev){
   
   K <- ncol(Xmat)
-  xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
-  xi2 = matrix(xi_vec[(P*K+1): (P*K*2)], nrow = P)
+  xi1 <- matrix(xi_vec[1:(P * K)], nrow = P)
+  xi2 <- matrix(xi_vec[(P * K + 1):(P * K * 2)], nrow = P)
   
+  lower_idx <- which(lower.tri(matrix(FALSE, nrow = P, ncol = P), diag = FALSE))
+  n_t <- length(tid_vec)
+  stress <- numeric(n_t)
   
-  stress <- mapply(SplMDS_stress_t, 
-                   tid_vec, dissim_list,
-                   MoreArgs = list(
-                   xi1=xi1, xi2=xi2, 
-                   P = P,
-                   init_coord=init_coord,
-                   lambda = lambda,
-                   Xmat = Xmat, 
-                   Xmat2dev = Xmat2dev))
-  stress <- sum(stress, na.rm = T)
+  for (i in seq_len(n_t)) {
+    stress[i] <- SplMDS_stress_t(
+      t = tid_vec[i],
+      xi1 = xi1,
+      xi2 = xi2,
+      diss_t = dissim_list[[i]],
+      P = P,
+      init_coord = init_coord,
+      lambda = lambda,
+      Xmat = Xmat,
+      Xmat2dev = Xmat2dev,
+      lower_idx = lower_idx
+    )
+  }
   
-  return(stress)
+  return(sum(stress, na.rm = TRUE))
 }
