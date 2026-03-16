@@ -20,32 +20,25 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
                             init_coord, lambda, Xmat, Xmat2dev){
   
   # calculates coordinates at t (P by 2)
-  K <- ncol(Xmat) # splines dimension
-  c1 <- init_coord[,1] + xi1 %*% Xmat[t, ]
-  c2 <- init_coord[,2] + xi2 %*% Xmat[t, ]
-  # c1 <- c1[,1]
-  # c2 <- c2[,1]
+  x_t <- Xmat[t, ]
+  c1 <- init_coord[,1] + as.vector(xi1 %*% x_t)
+  c2 <- init_coord[,2] + as.vector(xi2 %*% x_t)
   
-  # pariwise euclidean distance
-  # dist_t <-as.matrix(dist(cbind(c1,c2), diag = T, upper = T)) # dist() is a o(n^2) operation
-  # dist_t <- sqrt(outer(c1, c1, "-")^2 + outer(c2, c2, "-")^2)
-  # dist_t <- Rfast::Dist(cbind(c1, c2))
-  dist_t <- fields::rdist(cbind(c1, c2), cbind(c1, c2), compact = T)
-  dist_t <- dist_t[lower.tri(dist_t)]
-  # dist_t <- Matrix::tril(dist_t, 0)
+  # pairwise euclidean distance (lower triangle only)
+  coord_t <- cbind(c1, c2)
+  dist_t <- as.vector(stats::dist(coord_t, method = "euclidean", diag = FALSE, upper = FALSE))
   
   # Kruskal stress
-  # diss_t <- dissim_list[[t]]
-  # diss_t <- Matrix::tril(diss_t, 0)
-  diss_t <- diss_t[lower.tri(diss_t)]
-  stress_t <- sqrt(sum((diss_t-dist_t)^2)/sum(diss_t^2))
+  diss_t <- diss_t[lower.tri(diss_t, diag = FALSE)]
+  stress_t <- sqrt(sum((diss_t - dist_t)^2) / sum(diss_t^2))
   
   # penalization
-  penal_c1 <- sum((xi1 %*% Xmat2dev[t, ])^2)
-  penal_c2 <- sum((xi2 %*% Xmat2dev[t, ])^2)
-  penal_t <- lambda*(penal_c1+penal_c2)
+  x_t_2dev <- Xmat2dev[t, ]
+  penal_c1 <- sum((xi1 %*% x_t_2dev)^2)
+  penal_c2 <- sum((xi2 %*% x_t_2dev)^2)
+  penal_t <- lambda * (penal_c1 + penal_c2)
   
-  loss = stress_t+penal_t
+  loss <- stress_t + penal_t
   
   return(loss)
 }
