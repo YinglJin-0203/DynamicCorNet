@@ -5,7 +5,7 @@
 #' @param t current time index
 #' @param xi1 
 #' @param xi2 
-#' @param diss_t P by P matrix, disimilarity list at time t
+#' @param diss_t P by P matrix, dissimilarity matrix at time t
 #' @param P number of variables
 #' @param init_coord P by 2 matrix indicating the initialized coordinates
 #' @param lambda 
@@ -13,10 +13,8 @@
 #' @param Xmat2dev 
 #' @param lower_idx optional vector of lower-triangle indices for `diss_t`
 #'
-#' @returns
-#' @export
-#'
-#' @examples
+#' @returns Stress loss at a certain time points
+
 SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P, 
                             init_coord, lambda, Xmat, Xmat2dev,
                             lower_idx = NULL){
@@ -48,14 +46,6 @@ SplMDS_stress_t <- function(t, xi1, xi2, diss_t, P,
   return(loss)
 }
 
-# test
-# xi_vec <- rnorm(P*K*2)
-# xi1 = matrix(xi_vec[1: (P*K)], nrow = P)
-# xi2 = matrix(xi_vec[(P*K+1): (P*K*2)], nrow = P)
-# SplMDS_stress_t(9, xi1, xi2,
-#                 diss_t = dis_mat[[9]],
-#                 init_coord = init_coord, lambda = 7,
-#                 Xmat = Xmat, Xmat2dev = Xmat2dev)
 
 ##### Over all stress #####
 
