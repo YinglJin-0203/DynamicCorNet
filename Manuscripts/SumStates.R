@@ -5,7 +5,8 @@ library(tidyverse)
 
 # data
 list.files("data")
-df <- read.csv("data/IFEDDemoData.csv")
+# df <- read.csv("data/IFEDDemoData.csv")
+df <- read.csv("data/IFD126005_IFED_GIRLS.csv")
 
 #### Identify heighest concentration ####
 
@@ -99,3 +100,23 @@ ggplot(peak_summary, aes(x = time, y = total_peaks)) +
        x = "Time Point",
        y = "Number of Subjects at a Peak") +
   theme_minimal()
+
+
+#### Measurement grid ####
+N <- length(unique(df$IFEDID))
+df %>% select(IFEDID, Visit, AgeInDaysIA, AgeInDaysHorm, AgeInDaysUltra) %>%
+  group_by(Visit) %>%
+  summarise_at(c("AgeInDaysIA", "AgeInDaysHorm", "AgeInDaysUltra"),
+               function(x){sum(!is.na(x)) > 0}) %>%
+  rename(
+    "Week" = Visit,
+    "Physical exam" = AgeInDaysIA, 
+    "Sample collection" = AgeInDaysHorm,
+    "Ultrasound" = AgeInDaysUltra) %>%
+  pivot_longer(2:4) %>%
+  filter(value) %>%
+  ggplot(aes(x=Week, y=name))+geom_point()+
+  scale_x_continuous(breaks = unique(df$Visit))+
+  theme_minimal()+
+  labs(y="")
+ggsave("Manuscripts/CaseStudy/ifed_grid.jpeg", width = 7, height = 3, bg = "white")
