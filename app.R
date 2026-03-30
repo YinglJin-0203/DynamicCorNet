@@ -26,6 +26,9 @@ library(ggdendro)
 library(ggpubr)
 library(ggfun)
 library(rsconnect)
+library(niehsHeader)
+library(niehsFooter)
+
 
 # print(exists("gg_par"))
 
@@ -63,8 +66,14 @@ source(here("Code/IntDissMat.R"))
 
 # UI includes the following elements
 # visualization threshold of correlation
-ui <- navbarPage(title = "Multivariate Longitudinal Exploratory Data Analysis",
+ui <- fluidPage(
   
+  # headers
+  niehs_head_tags(),
+  
+  niehs_header(),
+  
+  navbarPage(title = "Multivariate Longitudinal Exploratory Data Analysis",
   # tab 1: data upload and prespecifications
   tabPanel(title = "Data upload and preview",
            
@@ -91,7 +100,7 @@ ui <- navbarPage(title = "Multivariate Longitudinal Exploratory Data Analysis",
              mainPanel(h3('Data preview'),
                        dataTableOutput("show_df"),
                        h4("Sample summary"), 
-                       htmlOutput("size_info"))
+                       htmlOutput("size_info")),
     
            )
            ),
@@ -255,6 +264,11 @@ ui <- navbarPage(title = "Multivariate Longitudinal Exploratory Data Analysis",
              )
            ))
   
+)
+
+# niehs_footer_tags(),
+# niehs_footer()
+
 )
   
   
