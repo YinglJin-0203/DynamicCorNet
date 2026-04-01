@@ -69,9 +69,9 @@ source(here("Code/IntDissMat.R"))
 ui <- fluidPage(
   
   # headers
-  niehs_head_tags(),
-  
-  niehs_header(),
+  # niehs_head_tags(),
+  # 
+  # niehs_header(),
   
   navbarPage(title = "Multivariate Longitudinal Exploratory Data Analysis",
   # tab 1: data upload and prespecifications
@@ -90,8 +90,8 @@ ui <- fluidPage(
                ),
                br(), br(),
                # specify subject ID and time
-               uiOutput("time_var"),
                uiOutput("id_var"),
+               uiOutput("time_var"),
                width = 3
              ),
                
@@ -109,7 +109,7 @@ ui <- fluidPage(
   tabPanel(title = "Descriptives",
            tabsetPanel(
               ## subtab 2.1: single variable distribution
-                tabPanel(title = "Univariate",
+                tabPanel(title = "Univariate analysis",
                          # side bar 1
                          sidebarLayout(
                            sidebarPanel(
@@ -138,7 +138,7 @@ ui <- fluidPage(
                                    dataTableOutput("miss_npct_tb", width = "70%"))
               )),
               ## subtab 2.2: pairwise
-              tabPanel(title = "Bivariate",
+              tabPanel(title = "Bivariate analysis",
                        # side bar
                        sidebarLayout(
                         sidebarPanel( # correlation type
@@ -163,7 +163,7 @@ ui <- fluidPage(
                            plotOutput("trend_p")
                          ))),
               ## subtab 2.3: overall
-              tabPanel(title = "Multivariate",
+              tabPanel(title = "Multivariate analysis",
                          sidebarLayout(
                            sidebarPanel(
                              selectInput("cor_type2", label="Type of correlation",
@@ -362,34 +362,35 @@ server <- function(input, output) {
       rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
       mutate(id = as.factor(id)) %>%
       arrange(time)
-   if(input$time_type=="Discrete"){
+   # if(input$time_type=="Discrete"){
       df_miss %>%
        pivot_wider(id_cols = "id", names_from = "time", values_from = "var") %>%
        select(-id) %>%
        visdat::vis_miss(.)+
        labs(x=paste0(input$time_var, " (% present)"), y = "ID")
-   } else{
-     df_miss %>% ggplot()+
-       geom_tile(aes(x=time, y=id, fill = is.na(var)))+
-       geom_line(aes(x=time, y=id), alpha = 0.3, color = "grey20")+
-       scale_fill_manual(name = "", values = c("grey80", "grey20"), labels = c("Present", "Missing"))+
-       scale_x_continuous(breaks = seq(0, 300, by = 20))+
-       theme(legend.position = "bottom", axis.text.y = element_blank())+
-       labs(x=input$time_var, y = "ID")
-   }
+   # } else{
+   #   df_miss %>% ggplot()+
+   #     geom_tile(aes(x=time, y=id, fill = is.na(var)))+
+   #     geom_line(aes(x=time, y=id), alpha = 0.3, color = "grey20")+
+   #     scale_fill_manual(name = "", values = c("grey80", "grey20"), labels = c("Present", "Missing"))+
+   #     scale_x_continuous(breaks = seq(0, 300, by = 20))+
+   #     theme(legend.position = "bottom", axis.text.y = element_blank())+
+   #     labs(x=input$time_var, y = "ID")
+   # }
   })
   ## table for missingness
   output$miss_npct_tb <- renderDataTable({
     req(df(), input$select_var1, input$time_var, input$id_var, input$show_miss_npct)
+    Nid <- length(unique(df()[, input$id_var]))
     df_miss <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
       rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
       mutate(id = as.factor(id)) %>%
       arrange(time) %>%
       group_by(time) %>%
-      summarize(N = sum(is.na(var)), 
-                Pct = round(sum(is.na(var))/length(var), 2))
+      summarize(N = (Nid - sum(!is.na(var)))) %>%
+      mutate(Pct = round(N/Nid, 2))
     colnames(df_miss) <- c(input$time_var, "N", "%")
-    datatable(df_miss) %>%
+    datatable(df_miss, rownames = FALSE) %>%
       formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
   })
   ## notes for the boxplot
@@ -445,12 +446,14 @@ server <- function(input, output) {
     p2 <- df_cor %>% 
       filter(complete.cases(.)) %>%
       ggplot()+
-      geom_point(aes(x=time, y=cor, size = Npair))+
+      geom_point(aes(x=time, y=cor, size = Npair, alpha = Npair))+
       geom_line(aes(x=time, y=cor))+
-      labs(title = "Empirical correlation", x = input$time_var, y = " ", size = "Proportion of complete pairs")+
+      labs(title = "Empirical correlation", x = input$time_var, y = " ", 
+           size = "Proportion of complete pairs",
+           alpha = "Proportion of complete pairs")+
       theme(legend.position = "bottom")+
       guides(color = guide_legend(order = 1), 
-             size = guide_legend(order = 1))
+             alpha = guide_legend(order = 1))
     if(!input$scaleY){p2 <- p2 + ylim(-1, 1)}# scale correlation axis
     if(input$time_type == "Discrete"){p2 <- p2 + scale_x_continuous(breaks = t_uniq)}
     # display
