@@ -26,8 +26,8 @@ library(ggdendro)
 library(ggpubr)
 library(ggfun)
 library(rsconnect)
-library(niehsHeader)
-library(niehsFooter)
+# library(niehsHeader)
+# library(niehsFooter)
 
 
 # print(exists("gg_par"))
@@ -154,13 +154,13 @@ ui <- fluidPage(
                        
                        # main panel
                          mainPanel(
+                           h3("Comparision of distribution and temporal trend"),
+                           plotOutput("trend_p"),
+                           br(),
                            h3("Empirical correlation for a pair of variables"),
                            plotOutput("cor_trend_p"),
                            h5(icon("circle-info"), "Notes on correlation summary plot:"),
-                           htmlOutput("cor_trend_note"),
-                           br(),
-                           h3("Comparision of distribution and temporal trend"),
-                           plotOutput("trend_p")
+                           htmlOutput("cor_trend_note")
                          ))),
               ## subtab 2.3: overall
               tabPanel(title = "Multivariate analysis",
@@ -485,7 +485,7 @@ server <- function(input, output) {
         scale_fill_brewer(palette = "Set2")+
         scale_color_brewer(palette = "Set2")+
         scale_x_continuous(breaks = t_uniq)+
-        labs(title = "Variable distribution", x = input$time_var, y = " ")+
+        labs(title = "Variable distribution", x = input$time_var, y = " ", col = " ", fill = " ")+
         theme(legend.position = "bottom")
     }
     else {
@@ -497,7 +497,7 @@ server <- function(input, output) {
         scale_fill_brewer(palette = "Set2")+
         scale_color_brewer(palette = "Set2")+
         # scale_x_continuous(breaks = t_brk)+
-        labs(title = "Variable trend", x = input$time_var, y = " ")+
+        labs(title = "Variable trend", x = input$time_var, y = " ", col = " ")+
         theme(legend.position = "bottom")
     }
     # display

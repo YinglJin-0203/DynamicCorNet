@@ -5,8 +5,8 @@ library(tidyverse)
 
 # data
 list.files("data")
-# df <- read.csv("data/IFEDDemoData.csv")
-df <- read.csv("data/IFD126005_IFED_GIRLS.csv")
+df <- read.csv("data/IFEDDemoData.csv")
+# df <- read.csv("data/IFD126005_IFED_GIRLS.csv")
 
 #### Identify heighest concentration ####
 
@@ -120,3 +120,13 @@ df %>% select(IFEDID, Visit, AgeInDaysIA, AgeInDaysHorm, AgeInDaysUltra) %>%
   theme_minimal()+
   labs(y="")
 ggsave("Manuscripts/CaseStudy/ifed_grid.jpeg", width = 7, height = 3, bg = "white")
+
+
+#### Complete pairs ####
+# for bivariate analysis
+
+# ovary and thyroid has two complete pairs at week 32 (11th visit), 5 complete pairs at week 24 (9th visit) 
+df %>% select(ends_with("volume"), Week) %>%
+  group_by(Week) %>%
+  summarise(npair = sum(!is.na(Ovary.volume) & !is.na(Bud.bead.volume)))
+            
