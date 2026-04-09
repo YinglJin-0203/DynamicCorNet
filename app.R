@@ -99,8 +99,10 @@ ui <- fluidPage(
              # main panel: data preview
              mainPanel(h3('Data preview'),
                        dataTableOutput("show_df"),
+                       br(), 
                        h4("Sample summary"), 
-                       htmlOutput("size_info")),
+                       dataTableOutput("size_info")
+                       ),
     
            )
            ),
@@ -286,14 +288,24 @@ server <- function(input, output) {
   output$show_df <- renderDataTable({df()},
     options = list(scrollX = T, fixedHeader=T)
   )
-  output$size_info <- renderPrint({
+  output$size_info <- renderDataTable({
     req(df(), input$time_var, input$id_var)
+    # sample size, range and median of time, average observations per subject
+    # total number of observations in the dataset
     Nsize <- length(unique(df()[, input$id_var]))
-    Nfreq <- mean(table(df()[, input$id_var]))
+    Nfreq <- round(mean(table(df()[, input$id_var])), 2)
     Trange <- range(df()[, input$time_var])
-    cat(paste0("Number of participants: ", round(Nsize, 0), "<br>"))
-    cat(paste0("Average number of observations per participant: ", round(Nfreq, 2), "<br>"))
-    cat(paste0("Range of time: ", round(Trange[1], 2), " - ", round(Trange[2], 2), "<br>"))
+    Trange <- paste0("(", round(Trange[1], 2), ", ", round(Trange[2], 2), ")")
+    medT <- round(median(df()[, input$time_var]), 2)
+    # put them into a table
+    sum_tb <- data.frame(c("Sample size", "Average number of observations per participant", 
+                           "Range of follow up time", "Median of follow up time"), 
+                         c(Nsize, Nfreq, Trange, medT))
+    datatable(sum_tb, rownames = FALSE, caption = " ", colnames = c(" ", " "),
+              options = list(dom = "t"))
+    # cat(paste0("Number of participants: ", round(Nsize, 0), "<br>"))
+    # cat(paste0("Average number of observations per participant: ", round(Nfreq, 2), "<br>"))
+    # cat(paste0("Range of time: ", round(Trange[1], 2), " - ", round(Trange[2], 2), "<br>"))
     })
   ## specifying time and ID
   output$time_var <- renderUI({
