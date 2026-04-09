@@ -22,7 +22,7 @@
 #' @export
 #'
 #' @examples
-SplinesMDS <- function(dis_mat, lambda, P, tvec, use_rcpp = TRUE) {
+SplinesMDS <- function(dis_mat, lambda, P, tvec) {
   n_time <- length(tvec)
   tid <- seq_len(n_time) # time index
   
@@ -63,8 +63,7 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec, use_rcpp = TRUE) {
     control = list(maxit = 500),
     Xmat = Xmat,
     Xmat2dev = Xmat2dev,
-    diss_vec_list = diss_vec_list,
-    use_rcpp = use_rcpp
+    diss_vec_list = diss_vec_list
   )
   
   # output coefficients and design matrix
