@@ -117,27 +117,25 @@ ui <- fluidPage(
                            sidebarPanel(
                            uiOutput("varnames1"),
                            # time type with tooltip
-                           selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete"),
-                           # show detailed missing summary?
-                           checkboxInput("show_miss_npct", 
-                                         "Show the number and percentage of missing values?",
-                                         value=T)
+                           selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete")
                            ),
   
                          # main panel
                          mainPanel(# summary for selected variable
                                    h3('Single variable summary'),
-                                   plotOutput("sum_tb"),
-                                   # downloadButton("download_sum", "Download"),
-                                   h5(icon("circle-info"), "Notes on individual variable summary"),
-                                   htmlOutput("sum_tb_note"),
-                                   br(),
-                                   h3("Missing pattern of each subject"),
+                                   plotOutput("sum_plt"),
+                                   # htmlOutput("sum_tb_title"),
+                                   dataTableOutput("sum_tb"),
                                    plotOutput("miss_plot"),
-                                   h3("N (%) of missing observations"),
-                                   htmlOutput("miss_note"),
-                                   br(),
-                                   dataTableOutput("miss_npct_tb", width = "70%"))
+                                   h5(icon("circle-info"), "Notes on individual variable summary"),
+                                   htmlOutput("sum_tb_note"))
+                                   # br(),
+                                   # h3("Missing pattern of each subject"),
+                                   # plotOutput("miss_plot"),
+                                   # h3("N (%) of missing observations"),
+                                   # htmlOutput("miss_note"),
+                                   # br(),
+                                   # dataTableOutput("miss_npct_tb", width = "70%"))
               )),
               ## subtab 2.2: pairwise
               tabPanel(title = "Bivariate analysis",
@@ -326,47 +324,86 @@ server <- function(input, output) {
   })
   
   ## summary of single variables
-  plot_sum <- reactive({
+  df_uni <- reactive({
     req(df(), input$select_var1, input$time_var, input$id_var)
+    df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
+      rename(time=input$time_var, id=input$id_var, var=input$select_var1)
+  })
+  
+  plot_sum <- reactive({
+    req(df_uni())
     ### summary plot
     if(input$time_type=="Discrete"){
-      df_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
-        rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
+      df_sum <- df_uni() %>%
         group_by(time) %>%
         mutate(med=median(var, na.rm = T)) %>% 
         mutate(Nmiss = sum(is.na(var)), 
                Pctmiss = sum(is.na(var))/length(var))
       t_uniq <- sort(unique(df_sum$time))
-      # xlab <- df_sum %>% select(time, Nmiss, Pctmiss) %>% distinct(.) %>%
-      #   mutate(Nmiss = paste0(Nmiss, " (", round(100*Pctmiss, 2), "%)"))
-      # summary plot
       plot_sum <- df_sum %>% 
         ggplot()+
         geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.5, fill = "grey")+
         geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
         geom_line(data = df_sum %>% filter(!is.na(med)), aes(x=time, y=med))+
         scale_x_continuous(breaks = t_uniq, name = input$time_var)+
-                           # sec.axis = sec_axis(~., name = "N (pct) of missing", breaks = xlab$time, label=xlab$Nmiss))+
-        # theme(axis.text.x.top = element_text(angle=90))+
         labs(x=input$time_var, y=input$select_var1, 
              title = paste0("Distribution and temporal trend of ", input$select_var1))
     }
     else{
-      plot_sum <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
-        rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
+      plot_sum <- df_uni() %>%
         filter(complete.cases(.)) %>%
         ggplot()+
         geom_line(aes(x=time, y=var, group=id), alpha = 0.5, linewidth = 0.5)+
         geom_smooth(aes(x=time, y=var), na.rm = T)+
         labs(x=input$time_var, y = input$select_var1,
-             title = paste0("Distribution and temporal trend of ", input$select_var1))
+             title = paste0("Individual trajectories of", input$select_var1))
     }
     plot_sum
     })
-  output$sum_tb <- renderPlot({
+  output$sum_plt <- renderPlot({
     plot_sum()
   })
-  # missing plot
+  ### summary table
+  output$sum_tb <- renderDataTable({
+    req(df_uni())
+    N <- length(unique(df_uni()$id))
+    if(input$time_type=="Discrete"){
+      # time-wise summary
+      sum_tb <- df_uni() %>%
+        group_by(time) %>%
+        summarise(
+          Mean = mean(var, na.rm = T),
+          SD = sd(var, na.rm = T),
+          Min = min(var, na.rm = T),
+          Max = max(var, na.rm = T), 
+          Nmiss = 136-sum(!is.na(var))
+        ) 
+      datatable(sum_tb, rownames = FALSE, options = list(dom="t"),
+                colnames = c(input$time_var, "Mean", "SD", "Min", "Max", "# of missing values"),
+                caption = "Summary statistics at each time point") %>%
+        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6"))) %>%
+        formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2)
+      
+    } else {
+      # subject summary
+      sum_tb <- df_uni() %>% group_by(id) %>%
+        summarise(
+          Mean = mean(var, na.rm = T),
+          SD = sd(var, na.rm = T),
+          Min = min(var, na.rm = T),
+          Max = max(var, na.rm = T),
+          vel = NA,
+          curv = NA
+        )
+      datatable(sum_tb, rownames = FALSE, options = list(dom="tf"),
+                colnames = c("ID", "Mean", "SD", "Min", "Max", "Velocity", "Curvature"),
+                caption = "Summary statistics of each individual trajectory") %>%
+        formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2) 
+    }
+  })
+  
+  
+  ### missing plot: discrete only
   output$miss_plot <- renderPlot({
     req(df(), input$select_var1, input$time_var, input$id_var)
     # uni_id <- unique(df[ ,input$id_var])
@@ -374,37 +411,29 @@ server <- function(input, output) {
       rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
       mutate(id = as.factor(id)) %>%
       arrange(time)
-   # if(input$time_type=="Discrete"){
+   if(input$time_type=="Discrete"){
       df_miss %>%
        pivot_wider(id_cols = "id", names_from = "time", values_from = "var") %>%
        select(-id) %>%
        visdat::vis_miss(.)+
        labs(x=paste0(input$time_var, " (% present)"), y = "ID")
-   # } else{
-   #   df_miss %>% ggplot()+
-   #     geom_tile(aes(x=time, y=id, fill = is.na(var)))+
-   #     geom_line(aes(x=time, y=id), alpha = 0.3, color = "grey20")+
-   #     scale_fill_manual(name = "", values = c("grey80", "grey20"), labels = c("Present", "Missing"))+
-   #     scale_x_continuous(breaks = seq(0, 300, by = 20))+
-   #     theme(legend.position = "bottom", axis.text.y = element_blank())+
-   #     labs(x=input$time_var, y = "ID")
-   # }
+   } 
   })
   ## table for missingness
-  output$miss_npct_tb <- renderDataTable({
-    req(df(), input$select_var1, input$time_var, input$id_var, input$show_miss_npct)
-    Nid <- length(unique(df()[, input$id_var]))
-    df_miss <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
-      rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
-      mutate(id = as.factor(id)) %>%
-      arrange(time) %>%
-      group_by(time) %>%
-      summarize(N = (Nid - sum(!is.na(var)))) %>%
-      mutate(Pct = round(N/Nid, 2))
-    colnames(df_miss) <- c(input$time_var, "N", "%")
-    datatable(df_miss, rownames = FALSE) %>%
-      formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
-  })
+  # output$miss_npct_tb <- renderDataTable({
+  #   req(df(), input$select_var1, input$time_var, input$id_var, input$show_miss_npct)
+  #   Nid <- length(unique(df()[, input$id_var]))
+  #   df_miss <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
+  #     rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
+  #     mutate(id = as.factor(id)) %>%
+  #     arrange(time) %>%
+  #     group_by(time) %>%
+  #     summarize(N = (Nid - sum(!is.na(var)))) %>%
+  #     mutate(Pct = round(N/Nid, 2))
+  #   colnames(df_miss) <- c(input$time_var, "N", "%")
+  #   datatable(df_miss, rownames = FALSE) %>%
+  #     formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
+  # })
   ## notes for the boxplot
   output$sum_tb_note <- renderText({
     if(input$time_type=="Discrete"){
@@ -412,7 +441,10 @@ server <- function(input, output) {
               <li>Each measurement is considered as a occurrence at a discrete time point.</li>
               <li>Distribution of measurements from different subjects at the same time point is represented with boxplot. </li>
               <li>Trend over time is represented by change of median.</li>
-                  ")
+              <li> Correlation measure is sensitive to the missing values and can be unrealiable if the propotion of missing value is large.
+         If at any time point the total number of observation is less than 20, 
+         we may consider the correlation calculated at this time point too unreliable and unfit for further analysis.
+         We recommend treating such correlation as missing at this time point.</li>")
     } 
     else{
       meg = HTML("
@@ -424,12 +456,12 @@ server <- function(input, output) {
     print(meg)
   })
   ## mising value note
-  output$miss_note <- renderText({
-    HTML("Correlation measure is sensitive to the missing values and can be unrealiable if the propotion of missing value is large.
-         If at any time point the total number of observation is less than 20, 
-         we may consider the correlation calculated at this time point too unreliable and unfit for further analysis.
-         We recommend treating such correlation as missing at this time point.")
-  })
+  # output$miss_note <- renderText({
+  #   HTML("Correlation measure is sensitive to the missing values and can be unrealiable if the propotion of missing value is large.
+  #        If at any time point the total number of observation is less than 20, 
+  #        we may consider the correlation calculated at this time point too unreliable and unfit for further analysis.
+  #        We recommend treating such correlation as missing at this time point.")
+  # })
   
   ## subtab 2.2: pairwise correlaion
   output$varnames2 <- renderUI({
