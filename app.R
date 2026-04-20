@@ -378,7 +378,7 @@ server <- function(input, output) {
           Max = max(var, na.rm = T), 
           Nmiss = 136-sum(!is.na(var))
         ) 
-      datatable(sum_tb, rownames = FALSE, options = list(dom="t"),
+      datatable(sum_tb, rownames = FALSE, options = list(dom="tp"),
                 colnames = c(input$time_var, "Mean", "SD", "Min", "Max", "# of missing values"),
                 caption = "Summary statistics at each time point") %>%
         formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6"))) %>%
@@ -395,7 +395,7 @@ server <- function(input, output) {
           vel = NA,
           curv = NA
         )
-      datatable(sum_tb, rownames = FALSE, options = list(dom="tf"),
+      datatable(sum_tb, rownames = FALSE, options = list(dom="ftp"),
                 colnames = c("ID", "Mean", "SD", "Min", "Max", "Velocity", "Curvature"),
                 caption = "Summary statistics of each individual trajectory") %>%
         formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2) 
