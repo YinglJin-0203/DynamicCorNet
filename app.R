@@ -51,10 +51,12 @@ source(here("Code/Stress.R"))
 
 source(here("Code/DynDissmMat.R"))
 source(here("Code/Helpers/DynMDSHelpers.R"))
+# Rcpp::sourceCpp("Code/Helpers/DynMDSHelpers.cpp")
 source(here("Code/DynamicMDS.R"))
 
 source(here("Code/SplDissmMat.R"))
 source(here("Code/Helpers/SplMDSHelpers.R"))
+# Rcpp::sourceCpp("Code/Helpers/SplMDSHelpers.cpp")
 source(here("Code/SplinesMDS.R"))
 
 source(here("Code/HclustCoord.R"))
@@ -117,25 +119,20 @@ ui <- fluidPage(
                            sidebarPanel(
                            uiOutput("varnames1"),
                            # time type with tooltip
-                           selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete")
+                           selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete"),
+                           # note
+                           uiOutput("sum_tb_note"),
                            ),
   
                          # main panel
                          mainPanel(# summary for selected variable
                                    h3('Single variable summary'),
                                    plotOutput("sum_plt"),
-                                   # htmlOutput("sum_tb_title"),
+                                   h4("Summary statistics"),
                                    dataTableOutput("sum_tb"),
-                                   plotOutput("miss_plot"),
-                                   h5(icon("circle-info"), "Notes on individual variable summary"),
-                                   htmlOutput("sum_tb_note"))
-                                   # br(),
-                                   # h3("Missing pattern of each subject"),
-                                   # plotOutput("miss_plot"),
-                                   # h3("N (%) of missing observations"),
-                                   # htmlOutput("miss_note"),
-                                   # br(),
-                                   # dataTableOutput("miss_npct_tb", width = "70%"))
+                                   h4("Missing pattern"),
+                                   plotOutput("miss_plot")
+                         )
               )),
               ## subtab 2.2: pairwise
               tabPanel(title = "Bivariate analysis",
@@ -323,6 +320,15 @@ server <- function(input, output) {
                        selected = colnames(df())[5])
   })
   
+  output$sum_tb_note <- renderUI({
+    if(input$time_type=="Discrete"){
+      h5(icon("info-circle"), "Observations summarized by measurement time")
+    }
+    else{
+      h5(icon("info-circle"), "Observations summarized by individual trajectory")
+    }
+  })
+  
   ## summary of single variables
   df_uni <- reactive({
     req(df(), input$select_var1, input$time_var, input$id_var)
@@ -380,7 +386,11 @@ server <- function(input, output) {
         ) 
       datatable(sum_tb, rownames = FALSE, options = list(dom="tp"),
                 colnames = c(input$time_var, "Mean", "SD", "Min", "Max", "# of missing values"),
-                caption = "Summary statistics at each time point") %>%
+                caption = htmltools::tags$caption(
+                  style = 'caption-side: bottom; text-align: left;',
+                  'Measurement times with more than 20 missing values are marked out in red. 
+                  Correlation measure is sensitive to the proportion of missing values and can be unrealiable if the propotion of missing value is large.'
+                )) %>%
         formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6"))) %>%
         formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2)
       
@@ -392,12 +402,12 @@ server <- function(input, output) {
           SD = sd(var, na.rm = T),
           Min = min(var, na.rm = T),
           Max = max(var, na.rm = T),
+          nobs = sum(!is.na(var)),
           vel = NA,
           curv = NA
         )
       datatable(sum_tb, rownames = FALSE, options = list(dom="ftp"),
-                colnames = c("ID", "Mean", "SD", "Min", "Max", "Velocity", "Curvature"),
-                caption = "Summary statistics of each individual trajectory") %>%
+                colnames = c("ID", "Mean", "SD", "Min", "Max", "# of observations", "Velocity", "Curvature")) %>%
         formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2) 
     }
   })
@@ -435,26 +445,7 @@ server <- function(input, output) {
   #     formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
   # })
   ## notes for the boxplot
-  output$sum_tb_note <- renderText({
-    if(input$time_type=="Discrete"){
-      meg <- HTML("
-              <li>Each measurement is considered as a occurrence at a discrete time point.</li>
-              <li>Distribution of measurements from different subjects at the same time point is represented with boxplot. </li>
-              <li>Trend over time is represented by change of median.</li>
-              <li> Correlation measure is sensitive to the missing values and can be unrealiable if the propotion of missing value is large.
-         If at any time point the total number of observation is less than 20, 
-         we may consider the correlation calculated at this time point too unreliable and unfit for further analysis.
-         We recommend treating such correlation as missing at this time point.</li>")
-    } 
-    else{
-      meg = HTML("
-             <li>Measurements is considered noisy realizations of an underlying smooth process over time.</li>
-             <li>Each line represents the trajectory from one subject.</li>
-             <li>The blue line is a smoothed trend over all subjects and measurement points.</li>
-                 ")
-    }
-    print(meg)
-  })
+  
   ## mising value note
   # output$miss_note <- renderText({
   #   HTML("Correlation measure is sensitive to the missing values and can be unrealiable if the propotion of missing value is large.
@@ -490,10 +481,9 @@ server <- function(input, output) {
     p2 <- df_cor %>% 
       filter(complete.cases(.)) %>%
       ggplot()+
-      geom_point(aes(x=time, y=cor, size = Npair, alpha = Npair))+
+      geom_point(aes(x=time, y=cor, alpha = Npair), size = 3)+
       geom_line(aes(x=time, y=cor))+
       labs(title = "Empirical correlation", x = input$time_var, y = " ", 
-           size = "Proportion of complete pairs",
            alpha = "Proportion of complete pairs")+
       theme(legend.position = "bottom")+
       guides(color = guide_legend(order = 1), 
