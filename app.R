@@ -127,10 +127,11 @@ ui <- fluidPage(
                          # main panel
                          mainPanel(# summary for selected variable
                                    h3('Single variable summary'),
+                                   h4("Summary plot"),
                                    plotOutput("sum_plt"),
                                    h4("Summary statistics"),
                                    dataTableOutput("sum_tb"),
-                                   h4("Missing pattern"),
+                                   uiOutput("miss_plot_title"),
                                    plotOutput("miss_plot")
                          )
               )),
@@ -329,6 +330,12 @@ server <- function(input, output) {
     }
   })
   
+  output$miss_plot_title <- renderUI({
+    if(input$time_type == "Discrete"){
+      h4("Missing pattern")
+    }
+  })
+  
   ## summary of single variables
   df_uni <- reactive({
     req(df(), input$select_var1, input$time_var, input$id_var)
@@ -352,8 +359,7 @@ server <- function(input, output) {
         geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
         geom_line(data = df_sum %>% filter(!is.na(med)), aes(x=time, y=med))+
         scale_x_continuous(breaks = t_uniq, name = input$time_var)+
-        labs(x=input$time_var, y=input$select_var1, 
-             title = paste0("Distribution and temporal trend of ", input$select_var1))
+        labs(x=input$time_var, y=input$select_var1)
     }
     else{
       plot_sum <- df_uni() %>%
@@ -361,8 +367,7 @@ server <- function(input, output) {
         ggplot()+
         geom_line(aes(x=time, y=var, group=id), alpha = 0.5, linewidth = 0.5)+
         geom_smooth(aes(x=time, y=var), na.rm = T)+
-        labs(x=input$time_var, y = input$select_var1,
-             title = paste0("Individual trajectories of", input$select_var1))
+        labs(x=input$time_var, y = input$select_var1)
     }
     plot_sum
     })
@@ -398,17 +403,21 @@ server <- function(input, output) {
       # subject summary
       sum_tb <- df_uni() %>% group_by(id) %>%
         summarise(
+          nobs = sum(!is.na(var)),
           Mean = mean(var, na.rm = T),
           SD = sd(var, na.rm = T),
           Min = min(var, na.rm = T),
           Max = max(var, na.rm = T),
-          nobs = sum(!is.na(var)),
-          vel = NA,
-          curv = NA
+          vel = tryCatch({coef(lm(var~time))[2]}, 
+                         error = function(e){NA})
         )
       datatable(sum_tb, rownames = FALSE, options = list(dom="ftp"),
-                colnames = c("ID", "Mean", "SD", "Min", "Max", "# of observations", "Velocity", "Curvature")) %>%
-        formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2) 
+                colnames = c("ID", "# of observations", "Mean", "SD", "Min", "Max", "Velocity"),
+                caption = htmltools::tags$caption(
+                  style = 'caption-side: bottom; text-align: left;',
+                  'Velocity refers to the average rate of growth of each individual.'
+                )) %>%
+        formatRound(columns = c("Mean", "SD", "Min", "Max", "vel"), digits = 2) 
     }
   })
   

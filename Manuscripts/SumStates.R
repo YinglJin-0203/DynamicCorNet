@@ -129,4 +129,42 @@ ggsave("Manuscripts/CaseStudy/ifed_grid.jpeg", width = 7, height = 3, bg = "whit
 df %>% select(ends_with("volume"), Week) %>%
   group_by(Week) %>%
   summarise(npair = sum(!is.na(Ovary.volume) & !is.na(Bud.bead.volume)))
-            
+
+#### Velocity ####
+
+df <- read.csv("data/IFEDDemoData.csv")
+
+df1 <- df %>% select(ID, Week, FSH) %>% 
+  filter(ID == "102402")
+
+# average slopt
+plot(df1$Week, df1$FSH, xlab = "Week", ylab = "FSH", main = "1 person")
+lines(df1$Week, df1$FSH)
+
+mean(diff(df1$FSH)/diff(df1$Week), na.rm = T)
+
+# linear model
+df1 <- df %>% select(ID, Week, FSH)
+fit1 <- lm(FSH~Week, data = df1)
+coef(fit1)[2]
+
+df1 %>% group_by(ID) %>%
+  summarise(vel = coef(lm(FSH~Week))[2])
+
+# splines 
+library(splines)
+fit2 <- lm(FSH ~ bSpline(Week, df = 5), data = df1)
+newx <- seq(min(df1$Week), max(df1$Week), by = 0.1)
+pred <- predict(fit2, newdata = data.frame(Week=newx), deriv=0)
+pred
+
+bspl_driv <- bSpline(df1$Week, df = 5, deriv = 1)
+div1 <- bspl_driv%*% coef(fit2)[2:6]
+
+lines(newx, pred)
+points(df1$Week, div1, col = "red")
+
+pred <- predict(fit2, newdata = data.frame(Week=newx), deriv=1)
+pred
+class(fit2)
+driv1 <- predict(fit2, deriv = 3)

@@ -1,6 +1,5 @@
 ---
-title: 'mlEDA: an interactive tool for guided standardized exploratory analysis workflow
-  of multivariate longitudinal data'
+title: 'mlEDA: an interactive tool for guided standardized exploratory analysis workflow of multivariate longitudinal data'
 author:
   - Ying Jin
   - Mandy Goldberg
