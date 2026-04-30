@@ -63,6 +63,9 @@ Our study is motivated by the Infant Feeding and Early Development (IFED) study,
 This data set has been explored for a variety of questions regarding early development of the reproductive system and sex hormones concentration in this critical developmental window. However, the biological pathways behind these phenomenon remain unclear, largely due to the complexity of multidimensional, dynamic relationships between variables. Existing research often relies on univariate or pairwise examination ([@goldberg2024; @Chin2023]), which provides partial insights instead of comprehensive view. The study design of IFED data also poses challenges. For example, The schedule for blood sample collection and ultrasound are different (Figure \ref{fig:ifed}), and some hormone concentrations are often too low to be detected, resulting in difficulties in correlation calculation.
 
 To address the above mentioned challenges , we have created mlEDA, an interactive web-based application designed for a standardized EDA workflow of multivariate longitudinal data. This application integrates classical EDA components with a novel visualization scheme based on MDS, which displays dynamic evolution of correlations. It guides users through a comprehensive analytical workflow with interactive operations with minimal requirements of technical background and coding experience to facilitate interdisciplinary collaboration. In this the following section, we demonstrate the functionalities of mlEDA in detail using data of the 136 girls from the IFED study. 
+```{r}
+
+```
 
 ```{r ifed, fig.cap="IFED study timeline. Scheduled procedure are indicated by black dots. ", out.width="70%", fig.align='center'}
 knitr::include_graphics("../Manuscripts/CaseStudy/IFED_grid.jpeg")

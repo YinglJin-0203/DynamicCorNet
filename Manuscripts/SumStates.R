@@ -130,41 +130,42 @@ df %>% select(ends_with("volume"), Week) %>%
   group_by(Week) %>%
   summarise(npair = sum(!is.na(Ovary.volume) & !is.na(Bud.bead.volume)))
 
-#### Velocity ####
+#### Correlation of smoothed trajectories ####
+library(mgcv)
 
 df <- read.csv("data/IFEDDemoData.csv")
 
-df1 <- df %>% select(ID, Week, FSH) %>% 
-  filter(ID == "102402")
+df1 <- df %>% select(ID, Week, FSH, Ovary.volume) 
+colnames(df1) <- c("id", "time", "var1", "var2")
+head(df1)
+span <- 3*mean(diff(tuniq))
+df_smth <- df1 %>%
+  group_by(id) %>%
+  group_modify(~{
+    fit1 <- loess(var1 ~ time, data = .x, span = span)
+    pred1 <- predict(fit1, newdata = data.frame(time = tuniq))
+    fit2 <- loess(var2 ~ time, data = .x, span = span)
+    pred2 <- predict(fit2, newdata = data.frame(time = tuniq))
+    data.frame(time = tuniq, pred1 = pred1, pred2 = pred2)
+  })
 
-# average slopt
-plot(df1$Week, df1$FSH, xlab = "Week", ylab = "FSH", main = "1 person")
-lines(df1$Week, df1$FSH)
+df_cor <- df_smth %>% 
+  group_by(time) %>%
+  summarize(cor = cor(.data$pred1, .data$pred2, 
+                      use = "pairwise.complete.obs"))
 
-mean(diff(df1$FSH)/diff(df1$Week), na.rm = T)
 
-# linear model
-df1 <- df %>% select(ID, Week, FSH)
-fit1 <- lm(FSH~Week, data = df1)
-coef(fit1)[2]
+df_pred %>%
+  ggplot(aes(x=time, y=pred, group = id)) +
+  geom_line()
 
-df1 %>% group_by(ID) %>%
-  summarise(vel = coef(lm(FSH~Week))[2])
+# LOESS
+fit1 <- loess(FSH ~ Week, data = df1)
+pred1 <- predict(fit1, newdata = data.frame(Week = sort(tuniq)))
+df1$FSH
+summary(pred1)
+plot(df1$Week, df1$FSH)
+lines(sort(tuniq), pred1)
+colnames(df1) <- c("id", "time", "var1", "var2")
+head(df1)
 
-# splines 
-library(splines)
-fit2 <- lm(FSH ~ bSpline(Week, df = 5), data = df1)
-newx <- seq(min(df1$Week), max(df1$Week), by = 0.1)
-pred <- predict(fit2, newdata = data.frame(Week=newx), deriv=0)
-pred
-
-bspl_driv <- bSpline(df1$Week, df = 5, deriv = 1)
-div1 <- bspl_driv%*% coef(fit2)[2:6]
-
-lines(newx, pred)
-points(df1$Week, div1, col = "red")
-
-pred <- predict(fit2, newdata = data.frame(Week=newx), deriv=1)
-pred
-class(fit2)
-driv1 <- predict(fit2, deriv = 3)

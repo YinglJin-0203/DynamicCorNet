@@ -412,10 +412,11 @@ server <- function(input, output) {
                          error = function(e){NA})
         )
       datatable(sum_tb, rownames = FALSE, options = list(dom="ftp"),
-                colnames = c("ID", "# of observations", "Mean", "SD", "Min", "Max", "Velocity"),
+                colnames = c("ID", "# of observations", "Mean", "SD", "Min", "Max", "Slope*"),
                 caption = htmltools::tags$caption(
                   style = 'caption-side: bottom; text-align: left;',
-                  'Velocity refers to the average rate of growth of each individual.'
+                  '*Slope is estimated by fitting linear regression model on each individual trajectory.
+                  It reflects an average of change of a subject over time.'
                 )) %>%
         formatRound(columns = c("Mean", "SD", "Min", "Max", "vel"), digits = 2) 
     }
@@ -438,77 +439,12 @@ server <- function(input, output) {
        labs(x=paste0(input$time_var, " (% present)"), y = "ID")
    } 
   })
-  ## table for missingness
-  # output$miss_npct_tb <- renderDataTable({
-  #   req(df(), input$select_var1, input$time_var, input$id_var, input$show_miss_npct)
-  #   Nid <- length(unique(df()[, input$id_var]))
-  #   df_miss <- df()[, c(input$id_var, input$time_var, input$select_var1)] %>%
-  #     rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
-  #     mutate(id = as.factor(id)) %>%
-  #     arrange(time) %>%
-  #     group_by(time) %>%
-  #     summarize(N = (Nid - sum(!is.na(var)))) %>%
-  #     mutate(Pct = round(N/Nid, 2))
-  #   colnames(df_miss) <- c(input$time_var, "N", "%")
-  #   datatable(df_miss, rownames = FALSE) %>%
-  #     formatStyle("N", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
-  # })
-  ## notes for the boxplot
-  
-  ## mising value note
-  # output$miss_note <- renderText({
-  #   HTML("Correlation measure is sensitive to the missing values and can be unrealiable if the propotion of missing value is large.
-  #        If at any time point the total number of observation is less than 20, 
-  #        we may consider the correlation calculated at this time point too unreliable and unfit for further analysis.
-  #        We recommend treating such correlation as missing at this time point.")
-  # })
   
   ## subtab 2.2: pairwise correlaion
   output$varnames2 <- renderUI({
     req(df())
     checkboxGroupInput("select_var2", label = "Variables", choices = colnames(df()), 
                        selected = colnames(df())[3:4])
-  })
-  ### empirical correlations
-  output$cor_trend_p <- renderPlot({
-    req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
-    validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
-    # sub data
-    df_pair <- df()[, c(input$time_var, input$id_var, input$select_var2)] %>%
-      rename(time=input$time_var, id = input$id_var)
-    t_uniq <- unique(df_pair$time)
-    N <- length(unique(df()[ , input$id_var]))
-    # correlation and proportion of complete pairs
-    var1 <- input$select_var2[1]
-    var2 <- input$select_var2[2]
-    df_cor <- df_pair %>% 
-      group_by(time) %>%
-      summarize(cor = cor(.data[[var1]], .data[[var2]], 
-                          use = "pairwise.complete.obs", method = input$cor_type),
-                Npair = sum(complete.cases(.data[[var1]], .data[[var2]]))/N)
-    # plot
-    p2 <- df_cor %>% 
-      filter(complete.cases(.)) %>%
-      ggplot()+
-      geom_point(aes(x=time, y=cor, alpha = Npair), size = 3)+
-      geom_line(aes(x=time, y=cor))+
-      labs(title = "Empirical correlation", x = input$time_var, y = " ", 
-           alpha = "Proportion of complete pairs")+
-      theme(legend.position = "bottom")+
-      guides(color = guide_legend(order = 1), 
-             alpha = guide_legend(order = 1))
-    if(!input$scaleY){p2 <- p2 + ylim(-1, 1)}# scale correlation axis
-    if(input$time_type == "Discrete"){p2 <- p2 + scale_x_continuous(breaks = t_uniq)}
-    # display
-    p2
-  })
-  ###### note
-  output$cor_trend_note <- renderText({
-    HTML("
-    <li>The node size indicates the number of complete pairs used to calculate correlation at each time point.</li>
-    <li>Correlation measures are very sensitive to sample size. If the number of complete pais is very small (i.e < 20), 
-    the calculated measures are less realiable and will affect downstream analysis.
-         User may consider removing these time points from the dataset </li>")
   })
   
   #### comparision of distribution and trend
@@ -546,6 +482,73 @@ server <- function(input, output) {
     # display
     p1
   })
+  
+  ### empirical correlations
+  output$cor_trend_p <- renderPlot({
+    req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
+    validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
+    # sub data
+    df_pair <- df()[, c(input$time_var, input$id_var, input$select_var2)] %>%
+      rename(time=input$time_var, id = input$id_var, 
+             var1 = input$select_var2[1], var2 = input$select_var2[2])
+    t_uniq <- unique(df_pair$time)
+    id_uniq <- unique(df_pair$id)
+    N <- length(id_uniq)
+    # correlation plot
+    if(input$time_type == "Discrete"){
+      # calculate correlation
+      df_cor <- df_pair %>%
+        group_by(time) %>%
+        summarize(cor = cor(.data$var1, .data$var2, 
+                            use = "pairwise.complete.obs", method = input$cor_type),
+                  Npair = sum(complete.cases(.data$var1, .data$var2)/N))
+    } else {
+      # correlation of smoothed values
+      # used loess smoothing because sparse observations and to preserve individual variability
+      # fit model and estimate smoothed values
+      span <- 3*mean(diff(t_uniq))
+      df_smth <- df_pair %>%
+        group_by(id) %>%
+        group_modify(~{
+          fit1 <- loess(var1 ~ time, data = .x, span = span)
+          pred1 <- predict(fit1, newdata = data.frame(time = t_uniq))
+          fit2 <- loess(var2 ~ time, data = .x, span = span)
+          pred2 <- predict(fit2, newdata = data.frame(time = t_uniq))
+          data.frame(time = t_uniq, pred1 = pred1, pred2 = pred2)
+        })
+      
+      # calculate correlation
+      df_cor <- df_smth %>% left_join(df_pair, by = c("id", "time")) %>% 
+        group_by(time) %>%
+        summarize(cor = cor(.data$pred1, .data$pred2, 
+                            use = "pairwise.complete.obs", method = input$cor_type),
+                  Npair = sum(complete.cases(.data$var1, .data$var2)/N)) %>%
+        filter(Npair > 0 )
+    }
+    # display
+  p2 <- df_cor %>% 
+    filter(complete.cases(.)) %>%
+    ggplot()+
+    geom_point(aes(x=time, y=cor, alpha = Npair), size = 3)+
+    geom_line(aes(x=time, y=cor))+
+    labs(title = "Correlation of smoothed values", x = input$time_var, y = " ", 
+         alpha = "Proportion of complete pairs")+
+    theme(legend.position = "bottom")+
+    guides(color = guide_legend(order = 1), 
+           alpha = guide_legend(order = 1))
+    if(!input$scaleY){p2 <- p2 + ylim(-1, 1)}# scale correlation axis
+    if(input$time_type == "Discrete"){p2 <- p2+scale_x_continuous(breaks = t_uniq)}
+    p2
+  })
+  ###### note
+  output$cor_trend_note <- renderText({
+    HTML("
+    <li>The node size indicates the number of complete pairs used to calculate correlation at each time point.</li>
+    <li>Correlation measures are very sensitive to sample size. If the number of complete pais is very small (i.e < 20), 
+    the calculated measures are less realiable and will affect downstream analysis.
+         User may consider removing these time points from the dataset </li>")
+  })
+  
   
   # subtab 2.3: overall correlation heatmap
   output$time_bar1 <- renderUI({
