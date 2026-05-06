@@ -72,11 +72,15 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec, use_rcpp = TRUE) {
   xi2 <- matrix(final_xi_vec$par[(P * K + 1):(P * K * 2)], nrow = P)
   rownames(xi1) <- rownames(xi2) <- rownames(dis_mat[[1]])
   
+  # reconstruct splines basis matrix
+  tgrid <-seq(min(t_input), max(t_input), by = min(diff(t_input)))
+  Xmat2 <- bSpline(tgrid, df = spline_df, degree = 2, derivs = 0)
+  
   coefs <- list(
     init_coord = init_coord,
     xi1 = xi1,
     xi2 = xi2,
-    Xmat = Xmat
+    Xmat = Xmat2
   )
   
   return(coefs)

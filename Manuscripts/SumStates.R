@@ -133,20 +133,36 @@ df %>% select(ends_with("volume"), Week) %>%
 #### Correlation of smoothed trajectories ####
 library(mgcv)
 
-df <- read.csv("data/IFEDDemoData.csv")
 
-df1 <- df %>% select(ID, Week, FSH, Ovary.volume) 
-colnames(df1) <- c("id", "time", "var1", "var2")
+df1 <- df %>% select(ID, Week, Estradiol) 
+colnames(df1) <- c("id", "time", "var1")
 head(df1)
+df1 %>%
+  group_by(id) %>% 
+  summarise(n = sum(!is.na(var1))) %>% 
+  arrange(n)
+
+# no obesrvations: 341902, 656102
+# 1 observation: 123402, 460602
+tuniq <- sort(unique(df1$time))
+span <- 3*mean(diff(tuniq))
+
+df1 %>%
+  filter(id==341902) %>%
+  loess(var1 ~ time, data = ., span = span)
+  
+
 span <- 3*mean(diff(tuniq))
 df_smth <- df1 %>%
   group_by(id) %>%
+  mutate(n=sum(!is.na(var1))) %>%
+  filter(n>3) %>%
   group_modify(~{
     fit1 <- loess(var1 ~ time, data = .x, span = span)
     pred1 <- predict(fit1, newdata = data.frame(time = tuniq))
-    fit2 <- loess(var2 ~ time, data = .x, span = span)
-    pred2 <- predict(fit2, newdata = data.frame(time = tuniq))
-    data.frame(time = tuniq, pred1 = pred1, pred2 = pred2)
+    # fit2 <- loess(var2 ~ time, data = .x, span = span)
+    # pred2 <- predict(fit2, newdata = data.frame(time = tuniq))
+    data.frame(time = tuniq, pred1 = pred1)
   })
 
 df_cor <- df_smth %>% 

@@ -387,18 +387,17 @@ server <- function(input, output) {
           SD = sd(var, na.rm = T),
           Min = min(var, na.rm = T),
           Max = max(var, na.rm = T), 
-          Nmiss = 136-sum(!is.na(var))
+          Nmiss = N-sum(!is.na(var))
         ) 
       datatable(sum_tb, rownames = FALSE, options = list(dom="tp"),
                 colnames = c(input$time_var, "Mean", "SD", "Min", "Max", "# of missing values"),
                 caption = htmltools::tags$caption(
                   style = 'caption-side: bottom; text-align: left;',
-                  'Measurement times with more than 20 missing values are marked out in red. 
+                  'Measurement times with no more than 20 observations are marked out in red. 
                   Correlation measure is sensitive to the proportion of missing values and can be unrealiable if the propotion of missing value is large.'
                 )) %>%
-        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6"))) %>%
+        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(N-20, c(NA,"#ffe6e6"))) %>%
         formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2)
-      
     } else {
       # subject summary
       sum_tb <- df_uni() %>% group_by(id) %>%
@@ -415,9 +414,12 @@ server <- function(input, output) {
                 colnames = c("ID", "# of observations", "Mean", "SD", "Min", "Max", "Slope*"),
                 caption = htmltools::tags$caption(
                   style = 'caption-side: bottom; text-align: left;',
-                  '*Slope is estimated by fitting linear regression model on each individual trajectory.
-                  It reflects an average of change of a subject over time.'
+                  HTML('*Slope is estimated by fitting linear regression model on each individual trajectory.
+                  It reflects an average of change of a subject over time.<br>
+                  Individuals with no more than 3 observations are marked out in red,
+                       as they do not have enough observations to reveal trajectory information.')
                 )) %>%
+        formatStyle("nobs", target = "row", backgroundColor = styleInterval(3, c("#ffe6e6", NA))) %>%
         formatRound(columns = c("Mean", "SD", "Min", "Max", "vel"), digits = 2) 
     }
   })
@@ -509,6 +511,10 @@ server <- function(input, output) {
       span <- 3*mean(diff(t_uniq))
       df_smth <- df_pair %>%
         group_by(id) %>%
+        mutate(n1=sum(!is.na(var1)), n2=sum(!is.na(var2))) %>%
+        filter(n1>3 & n2>3) %>%
+        # remove individual will <=3 observations in either trajecotry
+        # to ensure the reliability of smoothed value
         group_modify(~{
           fit1 <- loess(var1 ~ time, data = .x, span = span)
           pred1 <- predict(fit1, newdata = data.frame(time = t_uniq))
@@ -518,12 +524,12 @@ server <- function(input, output) {
         })
       
       # calculate correlation
-      df_cor <- df_smth %>% left_join(df_pair, by = c("id", "time")) %>% 
+      df_cor <- df_pair %>% left_join(df_smth, by = c("id", "time")) %>% 
         group_by(time) %>%
         summarize(cor = cor(.data$pred1, .data$pred2, 
                             use = "pairwise.complete.obs", method = input$cor_type),
-                  Npair = sum(complete.cases(.data$var1, .data$var2)/N)) %>%
-        filter(Npair > 0 )
+                  Npair = sum(complete.cases(.data$pred1, .data$pred2)/N)) #%>%
+        #filter(Npair > 0 )
     }
     # display
   p2 <- df_cor %>% 
@@ -531,7 +537,7 @@ server <- function(input, output) {
     ggplot()+
     geom_point(aes(x=time, y=cor, alpha = Npair), size = 3)+
     geom_line(aes(x=time, y=cor))+
-    labs(title = "Correlation of smoothed values", x = input$time_var, y = " ", 
+    labs(title = "Correlation of smoothed trajectories", x = input$time_var, y = " ", 
          alpha = "Proportion of complete pairs")+
     theme(legend.position = "bottom")+
     guides(color = guide_legend(order = 1), 
@@ -542,11 +548,27 @@ server <- function(input, output) {
   })
   ###### note
   output$cor_trend_note <- renderText({
-    HTML("
-    <li>The node size indicates the number of complete pairs used to calculate correlation at each time point.</li>
-    <li>Correlation measures are very sensitive to sample size. If the number of complete pais is very small (i.e < 20), 
-    the calculated measures are less realiable and will affect downstream analysis.
-         User may consider removing these time points from the dataset </li>")
+    if(input$time_type=="Discrete"){
+      
+      HTML("
+      Correlation measures are very sensitive to sample size. 
+      If the number of complete pairs is very small (i.e < 20), 
+      the calculated measures are less realiable and will affect downstream analysis.
+      User may consider removing these time points from the dataset.
+      Details of these time points can be examined in the previous subtab. 
+      ")
+      
+    } else {
+      
+      HTML("
+            <li>Smooth trajectories are estimated by LOcally Estimatated Scatterplot Smoothing (LOESS).
+            Individual tracks with no more than 3 observations are removed from this analysis, 
+            as observations are too sparse for reliable estimation. 
+            Details of these individuals can be exmained in the previous subtab.</li>
+            <li>Node color hue indicates the number of complete pairs of estiamted smoothed values used to calculate correlation at each time point.</li>")
+      
+    }
+  
   })
   
   
