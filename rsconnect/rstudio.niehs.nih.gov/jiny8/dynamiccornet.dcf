@@ -5,9 +5,9 @@ account: jiny8
 server: rstudio.niehs.nih.gov
 hostUrl: https://rstudio.niehs.nih.gov/__api__
 appId: 462
-bundleId: 2004
+bundleId: 2013
 url: https://rstudio.niehs.nih.gov/mleda/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: CaseStudy/IFED.R|CaseStudy/Splcoords_euclidean.RData|CaseStudy/Splcoords_spearman.RData|CaseStudy/Splcoords.RData|Notes.html|Notes.Rmd|README.md|SampleData/df_sample.csv|SampleData/Simulation.R|Simulation/coord_miss_t200.RData|Simulation/Proflie_spMDS.R|Simulation/SimEdistance.R|Simulation/SimMiss.R|Simulation/SimTemp.R|source.html|data|images|Manuscripts
+ignoredFiles: CaseStudy/IFED.R|CaseStudy/Splcoords_euclidean.RData|CaseStudy/Splcoords_spearman.RData|CaseStudy/Splcoords.RData|Notes.html|Notes.Rmd|README.md|SampleData/df_sample.csv|SampleData/SimCase1.csv|SampleData/Simulation.R|Simulation/coord_miss_t200.RData|Simulation/Proflie_spMDS.R|Simulation/SimEdistance.R|Simulation/SimMiss.R|Simulation/SimTemp.R|source.html|data|images|Manuscripts

@@ -42,24 +42,25 @@ stress_DynMDS <- function(vec, diss_list, P, ndim, Tmax, lambda) {
   }
   
   # penalization
-  node_list <- lapply(diss_list, colnames)
+  ## all variables
+  nodes <- unique(unlist(sapply(diss_list, colnames)))
   config_list <- configs
-  for(i in 2:length(node_list)){
-    if(is.null(node_list[[i]])){
-      node_list[[i]] <- node_list[[i-1]]
-      config_list[[i]] <- config_list[[i-1]]
-    }
+  for(i in 1:length(diss_list)){
+    rownames(config_list[[i]]) <- rownames(diss_list[[i]])
   }
-  for (t in 2:length(node_list)) {
-    if(dim(diss_list[[t]])[1]>0){
-      # identify nodes that exists in both slices
-      node_t <- node_list[[t]]
-      node_t_1 <- node_list[[t-1]]
-      rid_t <- node_t %in% node_t_1
-      rid_t_1 <- node_t_1 %in% node_t
-      diff <- config_list[[t]][rid_t] - config_list[[t-1]][rid_t_1]
-      stress <- stress + lambda * sum(diff^2)
-    }
+  ## penalization
+  penalization <- 0
+  for(var in nodes){
+    coord_i <- lapply(config_list, function(x) {
+                  if (var %in% rownames(x)) x[var, ] else NULL
+              })
+    coord_i <- Filter(Negate(is.null), coord_i)
+    coord_i <- do.call(rbind, coord_i)
+    penal_i <- sum(apply(coord_i, 2, diff)^2)
+    penalization = penalization+penal_i
+    
   }
+  # loss
+  stress <- stress + lambda * penalization
   return(stress)
 }
