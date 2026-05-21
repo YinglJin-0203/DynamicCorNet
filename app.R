@@ -462,7 +462,6 @@ server <- function(input, output) {
         pivot_longer(input$select_var2) %>%
         ggplot(aes(x = time, y=value, fill=name, colour = name, group=interaction(time, name)))+
         geom_boxplot(position = "dodge2", alpha = 0.7)+
-        geom_jitter(size = 0.5)+
         scale_fill_brewer(palette = "Set2")+
         scale_color_brewer(palette = "Set2")+
         scale_x_continuous(breaks = t_uniq)+
