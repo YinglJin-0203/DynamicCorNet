@@ -215,9 +215,9 @@ ui <- fluidPage(
              ),
              
              # main panel
-             mainPanel(h3("Temporal network of correlation"),
+             mainPanel(h3("Temporal network plot"),
                        plotOutput("netp", width = "100%", height = "400px"),
-                       h5(icon("circle-info"), "Note on the Temporal Network Graph:"),
+                       h5(icon("circle-info"), "Note on the Temporal Network Plot:"),
                        htmlOutput("mds_note1"),
                        h5(icon("circle-info"), "Note on variable vertices:"),
                        htmlOutput("legend_note"),
@@ -836,8 +836,9 @@ server <- function(input, output) {
             if(input$time_bar %in% t_uniq){
               # adjacency matrix
               adj_t <- adj_mat()[input$time_bar == t_uniq][[1]]
-              net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, 
-                                                   mode = "undirected", 
+              adj_t[is.na(adj_t)] <- 0
+              net_t <- graph_from_adjacency_matrix(adj_t, weighted = T,
+                                                   mode = "undirected",
                                                    diag = FALSE)
             } else {
               net_t <- make_empty_graph(n = length(nodes_t), directed = FALSE)

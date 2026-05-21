@@ -8,6 +8,24 @@ list.files("data")
 df <- read.csv("data/IFEDDemoData.csv")
 # df <- read.csv("data/IFD126005_IFED_GIRLS.csv")
 
+#### Measurement grid ####
+
+data.frame(
+  "Physical exam" =     c(1, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36),
+  "Sample collection" = c(NA,2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36),
+  "Ultrasound" =        c(1, NA,4, NA,NA,NA, 16, NA, 24, NA, 32, NA)
+) %>%
+  pivot_longer(1:3, values_to = "Week")%>%
+  ggplot(aes(x=Week, y=name, color = ifelse(Week == 6, "gray60", "black")))+
+  geom_point(size = 3)+
+  # geom_text(data = ~filter(.x, Week == 6), aes(label = "*"), 
+  #                         hjust = -0.8, size = 5, color = "gray60")+
+  scale_color_identity(guide = "none")+
+  scale_x_continuous(breaks = c(1, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36))+
+  labs(x="Week", y = "")
+ggsave("Manuscripts/CaseStudy/ifed_grid.jpeg", height = 5, width = 10)
+
+
 #### Identify heighest concentration ####
 
 tgrid <- sort(unique(df$Week))
@@ -115,7 +133,11 @@ df %>% select(IFEDID, Visit, AgeInDaysIA, AgeInDaysHorm, AgeInDaysUltra) %>%
     "Ultrasound" = AgeInDaysUltra) %>%
   pivot_longer(2:4) %>%
   filter(value) %>%
-  ggplot(aes(x=Week, y=name))+geom_point()+
+  ggplot(aes(x=Week, y=name, color = ifelse(Week == 6, "gray60", "black")))+
+  geom_point()+
+  geom_text(data = ~filter(.x, Week == 6), aes(label = "*"), 
+            hjust = -0.8, size = 5, color = "gray60")+
+  scale_color_identity(guide = "none")+
   scale_x_continuous(breaks = unique(df$Visit))+
   theme_minimal()+
   labs(y="")

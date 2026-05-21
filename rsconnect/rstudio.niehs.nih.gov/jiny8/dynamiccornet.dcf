@@ -5,7 +5,7 @@ account: jiny8
 server: rstudio.niehs.nih.gov
 hostUrl: https://rstudio.niehs.nih.gov/__api__
 appId: 462
-bundleId: 2014
+bundleId: 2015
 url: https://rstudio.niehs.nih.gov/mleda/
 version: 1
 asMultiple: FALSE
