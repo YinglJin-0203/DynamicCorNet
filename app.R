@@ -175,7 +175,8 @@ ui <- fluidPage(
                              uiOutput("varnames2_3")),
                            mainPanel(
                              h3("Correlation heatmap"),
-                             plotOutput("heatmap")
+                             plotOutput("heatmap", height = 500, width = 500),
+                             htmlOutput("heatmap_note")
                            )
                          )
                        )
@@ -595,13 +596,44 @@ server <- function(input, output) {
   
   output$heatmap <- renderPlot({
     req(df(), input$time_var, input$id_var, input$cor_type2, input$select_var2_3)
+    # sub data 
+    df_multi <- df()[, c(input$time_var, input$id_var, input$select_var2_3)] %>%
+      rename(time=input$time_var, id = input$id_var)
     ## correlation matrix
-    cormat <- cor(subset(df() %>% rename(time=input$time_var, id=input$id_var) %>%
-                           filter(time==input$time_bar1), 
-                         select = input$select_var2_3), 
-                  method = input$cor_type2, use = "pairwise.complete.obs")
+    if(input$time_type == "Continuous"){
+      t_uniq <- sort(unique(df_multi$time))
+      span <- 3 * mean(diff(t_uniq))
+      df_smth_multi <- df_multi %>% 
+        group_by(id) %>%
+        group_modify(~{
+          vars <- setdiff(names(.x), "time")
+          result <- data.frame(time = t_uniq)
+          for (v in vars) {
+            if (sum(!is.na(.x[[v]])) >= 3) {
+              fit <- loess(as.formula(paste(v, "~ time")), data = .x, span = span)
+              result[[v]] <- predict(fit, newdata = data.frame(time = t_uniq))
+            } else {
+              result[[v]] <- rep(NA_real_, length(t_uniq))
+            }
+          }
+         result
+        }) %>%
+        ungroup()
+    }
+    # correlation matrix
+    if(input$time_type == "Discrete"){
+      cormat <- cor(df_multi %>% filter(time==input$time_bar1) %>%
+                      select(-id, -time), 
+                    method = input$cor_type2, use = "pairwise.complete.obs")
+      
+    } else {
+      cormat <- cor(df_smth_multi %>% filter(time==input$time_bar1) %>% select(-id, -time), 
+                    method = input$cor_type2, use = "pairwise.complete.obs")
+      
+    }
+    
     ## heatmap
-    data.frame(cormat) %>% rownames_to_column("var1") %>%
+    htmap <- data.frame(cormat) %>% rownames_to_column("var1") %>%
       pivot_longer(-var1) %>%
       ggplot(aes(x=var1, y=name, fill = value))+
       geom_tile()+
@@ -609,10 +641,39 @@ server <- function(input, output) {
                                       rev = TRUE)+
       theme(legend.position = "bottom",
             axis.text.x = element_text(angle=90),
-            aspect.ratio = 1)+
-      labs(x="", y="", fill="Correlation", title = "Correlation matrix")
+            aspect.ratio = 1)
+    
+    if(input$time_type == "Discrete"){
+      htmap <- htmap+labs(x="", y="", fill="Correlation", title = "Empirical correlation matrix")
+    } else {
+      htmap <- htmap+labs(x="", y="", fill="Correlation", title = "Correlation of smoothed trajectories")
+    }
+    
+    htmap
+      
   }, height = 500, width = 500)
-  
+  ## notes
+  output$heatmap_note <- renderText({
+    if(input$time_type=="Discrete"){
+      
+      HTML("
+      Correlation measures are very sensitive to sample size. 
+      If the number of complete pairs is very small (i.e < 20), 
+      the calculated measures are less realiable and will affect downstream analysis.
+      User may consider removing these time points from the dataset.
+      Details of these time points can be examined in the previous subtabs. 
+      ")
+      
+    } else {
+      
+      HTML("Smooth trajectories are estimated by LOcally Estimatated Scatterplot Smoothing (LOESS).
+            Individual tracks with no more than 3 observations are removed from this analysis, 
+            as observations are too sparse for reliable estimation. 
+            Details of these individuals can be exmained in the previous subtabs.
+           ")
+      
+    }
+  })
   # tab 3: temporal network and group labels
   ## variable list
   output$varnames3 <- renderUI({
