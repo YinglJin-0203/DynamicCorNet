@@ -290,14 +290,19 @@ server <- function(input, output) {
     # sample size, range and median of time, average observations per subject
     # total number of observations in the dataset
     Nsize <- length(unique(df()[, input$id_var]))
+    Nrange <- range(table(df()[, input$id_var]))
+    Nrange <- paste0("(", round(Nrange[1], 2), ", ", round(Nrange[2], 2), ")")
     Nfreq <- round(mean(table(df()[, input$id_var])), 2)
     Trange <- range(df()[, input$time_var])
     Trange <- paste0("(", round(Trange[1], 2), ", ", round(Trange[2], 2), ")")
     medT <- round(median(df()[, input$time_var]), 2)
     # put them into a table
-    sum_tb <- data.frame(c("Sample size", "Average number of observations per participant", 
-                           "Range of follow up time", "Median of follow up time"), 
-                         c(Nsize, Nfreq, Trange, medT))
+    sum_tb <- data.frame(c("Number of participants", 
+                           "Range of number of observations per participant",
+                           "Average number of observations per participant",
+                           "Range of follow up time", 
+                           "Median of follow up time"), 
+                         c(Nsize,Nrange, Nfreq, Trange, medT))
     datatable(sum_tb, rownames = FALSE, caption = " ", colnames = c(" ", " "),
               options = list(dom = "t"))
     # cat(paste0("Number of participants: ", round(Nsize, 0), "<br>"))
