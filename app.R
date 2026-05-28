@@ -615,7 +615,7 @@ server <- function(input, output) {
           result <- data.frame(time = t_uniq)
           for (v in vars) {
             if (sum(!is.na(.x[[v]])) >= 3) {
-              fit <- loess(as.formula(paste(v, "~ time")), data = .x, span = span)
+              fit <- loess(as.formula(paste0("`", v, "` ~ time")), data = .x, span = span)
               result[[v]] <- predict(fit, newdata = data.frame(time = t_uniq))
             } else {
               result[[v]] <- rep(NA_real_, length(t_uniq))
