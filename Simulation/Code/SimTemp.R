@@ -13,53 +13,55 @@ library(mgcv)
 # function to simulate dataset
 source(here("Code/SimGroupT.R"))
 
-# functions to generate graph
-# source(here("Code/AdjacencyMat.R"))
-source(here("Code/Helpers/DynMDSHelpers.R"))
-source(here("Code/DynamicMDS.R"))
-source(here("Code/Helpers/SplMDSHelpers.R"))
-source(here("Code/SplinesMDS.R"))
-
-
 #### Scalars ####
+
+# big, 3-group data
 P <- 15 # total number of variables
 pGroup  <- rep(5, 3) # variable in each group
 G <- 3 # number of groups
 N <- 100 # sample size
+nt <- 10
+tvec <- seq(0, 1, length.out = nt)
+
+# small, one group data
+P <- 5
+gGroup <- 5
+G <- 1
+N <- 100
+nt <- 3
+tvec <- 1:3
 
 #### varying scalar: measure density ####
 # nt <- 10
-nt <- 10
-tvec <- seq(0, 1, length.out = nt)
 
 #### Generate data ####
 
 ##### constant between- and within-group correlation #####
 
-# # group level
-# cor_group <- matrix(0.5, G, G)
-# diag(cor_group) <- 1
-# # cor_group
-# 
-# # group-var level
-# rho <- c(0.3, 0.5, 0.7)
-# cor_group_var <- list()
-# for(g in seq_along(rho)){
-#   cor_g <- matrix(rho[g], nrow=pGroup[g], ncol=pGroup[g])
-#   diag(cor_g) <- 1
-#   cor_group_var[[g]] <- cor_g
-# }
-# cor_group_var <- Matrix::bdiag(cor_group_var)
-# # cor_group_var
-# 
-# # generate data
-# df_sim_temp1 <- lapply(tvec, GenDataT, N=100, P=15, G=3, pGroup=rep(5, 3),  cor_g = cor_group, 
-#                        cor_pg = cor_group_var, sigma=1, f=0, id = 1:N)
-# df_sim_temp1 <- bind_rows(df_sim_temp1)
-# 
-# # save data
-# saveRDS(df_sim_temp1, file = paste0("data/SimData/df_sim_temp1_t", nt, ".rds"))
-# 
+# group level
+cor_group <- matrix(0.5, G, G)
+diag(cor_group) <- 1
+cor_group
+
+# group-var level
+rho <- c(0.3, 0.5, 0.7)
+cor_group_var <- list()
+for(g in seq_along(rho)){
+  cor_g <- matrix(rho[g], nrow=pGroup[g], ncol=pGroup[g])
+  diag(cor_g) <- 1
+  cor_group_var[[g]] <- cor_g
+}
+cor_group_var <- Matrix::bdiag(cor_group_var)
+cor_group_var
+
+# generate data
+df_sim_temp1 <- lapply(tvec, GenDataT, N=100, P=15, G=3, pGroup=rep(5, 3),  cor_g = cor_group,
+                       cor_pg = cor_group_var, sigma=1, f=0, id = 1:N)
+df_sim_temp1 <- bind_rows(df_sim_temp1)
+
+# save data
+saveRDS(df_sim_temp1, file = paste0("Simulation/df_sim_const_cor_t", nt, ".rds"))
+
 
 ##### changing within-group and constant between-group correlation #####
 
@@ -93,49 +95,30 @@ for(t in seq_along(tvec)){
 # cor_group_var
 
 # generate
-df_sim <- lapply(1:nt, 
+df_sim_temp2 <- lapply(1:nt, 
                        function(t){
                          GenDataT(N=100, t = tvec[t], P = 15, G = 3, pGroup = rep(5, 3),
                                   cor_g = cor_group, cor_pg = cor_group_var[[t]],
                                   sigma=1, f=0, id = 1:N)
                        })
-df_sim <- bind_rows(df_sim)
+df_sim_temp2 <- bind_rows(df_sim_temp2)
 
 # save data
-# saveRDS(df_sim_temp2, file = paste0("data/SimData/df_sim_temp2_t", nt, ".rds"))
-
-#### calculate dissimilarity ####
-df <- read.csv("data/IFEDDemoData.csv")
-df %>% select(-ID, -Age.at.exam) %>% 
-  group_by(Week) %>% 
-  group_map(~{Rfast::Dist(t(.x), method = "euclidean")})
-
-
-mat1 <- matrix(1:6, nrow = 3, ncol=2)
-Rfast::Dist(t(mat1))
-outer(mat1, t(mat1), function(x, y){sqrt(sum((x-y)^2))})
-
-
-# calculate euclidean distance as dissimilarity
-dist_list <- df_sim %>% 
-  select(-id) %>%
-  group_by(time) %>% 
-  group_map(~{Rfast::Dist(t(.x))})
-
-dim(dist_list[[10]])
-
-dist_list <- lapply(dist_list,
-                     function(x){colnames(x) <- paste0("X", 1:15)})
-dim(dist_list[[1]])[1]
+saveRDS(df_sim_temp2, file = paste0("Simulation/df_sim_vary_cor_t", nt, ".rds"))
 
 #### Calculated coordinates ####
 
 ##### Dynamic MDS #####
 
+
+# step 1: adjacency matrix
+adj_mat1 <- GetAdjMat(df_sim_temp2 %>% dplyr::select(-id), mds_type = "Dynamic")
+lapply(adj_mat1, dim)
+
 # step 2: calculate layout
 time1 <- system.time({
 # prof1 <- profvis::profvis({
-  coord_list1 <- DynamicMDS(dist_list, lambda = 10)
+  coord_list1 <- DynamicMDS(adj_mat1, lambda = 10)
 })
 # prof1 # time: 16370 when nt = 10; 
 

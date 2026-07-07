@@ -40,9 +40,11 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec, use_rcpp = TRUE) {
   
   # spline basis at observed time points
   t_input <- as.numeric(tvec)
-  spline_df <- min(5L, n_time)
-  Xmat <- bSpline(t_input, df = spline_df, degree = 2, derivs = 0)
-  Xmat2dev <- bSpline(t_input, df = spline_df, degree = 2, derivs = 2)
+  spline_df <- min(n_time, 5)
+  # Xmat <- bSpline(t_input, df = spline_df, degree = 3, derivs = 0)
+  # Xmat2dev <- bSpline(t_input, df = spline_df, degree = 3, derivs = 2)
+  Xmat <- naturalSpline(t_input, df = spline_df, degree = 3, derivs = 0)
+  Xmat2dev <- naturalSpline(t_input, df = spline_df, degree = 3, derivs = 2)
   K <- ncol(Xmat)
   
   # Precompute lower-triangle dissimilarities once for optimization loop
@@ -74,7 +76,7 @@ SplinesMDS <- function(dis_mat, lambda, P, tvec, use_rcpp = TRUE) {
   
   # reconstruct splines basis matrix
   tgrid <-seq(min(t_input), max(t_input), by = min(diff(t_input)))
-  Xmat2 <- bSpline(tgrid, df = spline_df, degree = 2, derivs = 0)
+  Xmat2 <- naturalSpline(tgrid, df = spline_df, degree = 3, derivs = 0)
   
   coefs <- list(
     init_coord = init_coord,

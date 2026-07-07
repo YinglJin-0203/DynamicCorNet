@@ -42,7 +42,7 @@ print(R.version.string)
 
 theme_set(theme_minimal())
 
-set.seed(825)
+set.seed(62)
 
 
 #### Helper functions #### 
@@ -118,8 +118,9 @@ ui <- fluidPage(
                          sidebarLayout(
                            sidebarPanel(
                            uiOutput("varnames1"),
-                           # time type with tooltip
-                           selectInput("time_type", "Treat time as", choices = c("Continuous", "Discrete"), selected = "Discrete"),
+                           # summarize type
+                           selectInput("sum_type", "Summarize by", choices = c("Time", "Trajectory"), 
+                                       selected = "Time", multiple = FALSE),
                            # note
                            uiOutput("sum_tb_note"),
                            ),
@@ -128,18 +129,22 @@ ui <- fluidPage(
                          mainPanel(# summary for selected variable
                                    h3('Single variable summary'),
                                    h4("Summary plot"),
-                                   plotOutput("sum_plt"),
+                                   plotOutput("sum_plt", width = "500px", height = "400px"),
                                    h4("Summary statistics"),
                                    dataTableOutput("sum_tb"),
-                                   uiOutput("miss_plot_title"),
-                                   plotOutput("miss_plot")
+                                   h4("Missing pattern"),
+                                   plotOutput("miss_plot", width = "500px", height = "400px")
                          )
               )),
               ## subtab 2.2: pairwise
               tabPanel(title = "Bivariate analysis",
                        # side bar
                        sidebarLayout(
-                        sidebarPanel( # correlation type
+                        sidebarPanel( 
+                          # summarize type
+                          selectInput("sum_type2", "Summarize by", choices = c("Time", "Trajectory"), 
+                                      selected = "Time", multiple = FALSE),
+                          # correlation type
                           selectInput("cor_type", label="Type of correlation",
                                       choices = list("pearson", "spearman")),
                           tagList(
@@ -282,7 +287,9 @@ server <- function(input, output) {
     read.csv(input$df_path$datapath, check.names = F)
   })
   ## data preview  
-  output$show_df <- renderDataTable({df()},
+  output$show_df <- renderDataTable({
+    datatable(df()) %>% formatSignif(columns = colnames(df()), digits = 3)
+    },
     options = list(scrollX = T, fixedHeader=T)
   )
   output$size_info <- renderDataTable({
@@ -328,19 +335,19 @@ server <- function(input, output) {
   })
   
   output$sum_tb_note <- renderUI({
-    if(input$time_type=="Discrete"){
-      h5(icon("info-circle"), "Observations summarized by measurement time")
+    if(input$sum_type=="Time"){
+      h5(icon("info-circle"), "Observations summarized at each time point")
     }
     else{
       h5(icon("info-circle"), "Observations summarized by individual trajectory")
     }
   })
   
-  output$miss_plot_title <- renderUI({
-    if(input$time_type == "Discrete"){
-      h4("Missing pattern")
-    }
-  })
+  # output$miss_plot_title <- renderUI({
+  #   if(input$time_type == "Discrete"){
+  #     h4("Missing pattern")
+  #   }
+  # })
   
   ## summary of single variables
   df_uni <- reactive({
@@ -352,7 +359,7 @@ server <- function(input, output) {
   plot_sum <- reactive({
     req(df_uni())
     ### summary plot
-    if(input$time_type=="Discrete"){
+    if(input$sum_type=="Time"){
       df_sum <- df_uni() %>%
         group_by(time) %>%
         mutate(med=median(var, na.rm = T)) %>% 
@@ -384,7 +391,7 @@ server <- function(input, output) {
   output$sum_tb <- renderDataTable({
     req(df_uni())
     N <- length(unique(df_uni()$id))
-    if(input$time_type=="Discrete"){
+    if(input$sum_type=="Time"){
       # time-wise summary
       sum_tb <- df_uni() %>%
         group_by(time) %>%
@@ -402,8 +409,8 @@ server <- function(input, output) {
                   'Measurement times with no more than 20 observations are marked out in red. 
                   Correlation measure is sensitive to the proportion of missing values and can be unrealiable if the propotion of missing value is large.'
                 )) %>%
-        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(N-20, c(NA,"#ffe6e6"))) %>%
-        formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2)
+        formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2) %>%
+        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
     } else {
       # subject summary
       sum_tb <- df_uni() %>% group_by(id) %>%
@@ -431,7 +438,7 @@ server <- function(input, output) {
   })
   
   
-  ### missing plot: discrete only
+  ### missing plot: time summarization only
   output$miss_plot <- renderPlot({
     req(df(), input$select_var1, input$time_var, input$id_var)
     # uni_id <- unique(df[ ,input$id_var])
@@ -439,13 +446,14 @@ server <- function(input, output) {
       rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
       mutate(id = as.factor(id)) %>%
       arrange(time)
-   if(input$time_type=="Discrete"){
-      df_miss %>%
+   plt_miss <- df_miss %>%
        pivot_wider(id_cols = "id", names_from = "time", values_from = "var") %>%
        select(-id) %>%
        visdat::vis_miss(.)+
-       labs(x=paste0(input$time_var, " (% present)"), y = "ID")
-   } 
+       labs(x=paste0(input$time_var, " (% present)"), y = "ID")+
+       theme(axis.text.x = element_text(angle = 45, hjust = 1.5),
+             axis.title.x = element_text(margin = margin(t = 10))) 
+   plt_miss
   })
   
   ## subtab 2.2: pairwise correlaion
@@ -455,16 +463,20 @@ server <- function(input, output) {
                        selected = colnames(df())[3:4])
   })
   
-  #### comparision of distribution and trend
-  output$trend_p <- renderPlot({
-    req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
+  ### data
+  df_pair <- reactive({
+    req(df(), input$select_var2, input$time_var, input$id_var)
     validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
     df_pair <- df()[, c(input$time_var, input$id_var, input$select_var2)] %>%
       rename(time=input$time_var, id = input$id_var)
-    t_uniq <- unique(df_pair$time)
+    df_pair
+  })
+  #### comparision of distribution and trend
+  output$trend_p <- renderPlot({
+    t_uniq <- unique(df_pair()$time)
     # trend plot
-    if(input$time_type == "Discrete"){
-      p1 <- df_pair %>%
+    if(input$sum_type2 == "Time"){
+      p1 <- df_pair() %>%
         pivot_longer(input$select_var2) %>%
         ggplot(aes(x = time, y=value, fill=name, colour = name, group=interaction(time, name)))+
         geom_boxplot(position = "dodge2", alpha = 0.7)+
@@ -475,7 +487,7 @@ server <- function(input, output) {
         theme(legend.position = "bottom")
     }
     else {
-      p1 <- df_pair %>%
+      p1 <- df_pair() %>%
         pivot_longer(input$select_var2) %>%
         filter(complete.cases(.)) %>%
         ggplot(aes(x = time, y=value, colour = name, group=interaction(id, name)))+
@@ -492,87 +504,81 @@ server <- function(input, output) {
   
   ### empirical correlations
   output$cor_trend_p <- renderPlot({
-    req(df(), input$select_var2, input$time_var, input$id_var, input$time_type)
-    validate(need(length(input$select_var2)==2, "Please select a pair of variables."))
-    # sub data
-    df_pair <- df()[, c(input$time_var, input$id_var, input$select_var2)] %>%
-      rename(time=input$time_var, id = input$id_var, 
-             var1 = input$select_var2[1], var2 = input$select_var2[2])
-    t_uniq <- unique(df_pair$time)
-    id_uniq <- unique(df_pair$id)
+    t_uniq <- unique(df_pair()$time)
+    id_uniq <- unique(df_pair()$id)
     N <- length(id_uniq)
     # correlation plot
-    if(input$time_type == "Discrete"){
+    # if(input$time_type == "Discrete"){
       # calculate correlation
-      df_cor <- df_pair %>%
-        group_by(time) %>%
-        summarize(cor = cor(.data$var1, .data$var2, 
-                            use = "pairwise.complete.obs", method = input$cor_type),
-                  Npair = sum(complete.cases(.data$var1, .data$var2)/N))
-    } else {
+    df_cor <- df_pair() %>%
+      group_by(time) %>%
+      summarize(cor = cor(.data[[input$select_var2[1]]], .data[[input$select_var2[2]]], 
+                          use = "pairwise.complete.obs", method = input$cor_type),
+                Npair = sum(complete.cases(.data[[input$select_var2[1]]], .data[[input$select_var2[2]]])/N))
+    # } else {
       # correlation of smoothed values
       # used loess smoothing because sparse observations and to preserve individual variability
       # fit model and estimate smoothed values
-      span <- 3*mean(diff(t_uniq))
-      df_smth <- df_pair %>%
-        group_by(id) %>%
-        mutate(n1=sum(!is.na(var1)), n2=sum(!is.na(var2))) %>%
-        filter(n1>3 & n2>3) %>%
-        # remove individual will <=3 observations in either trajecotry
-        # to ensure the reliability of smoothed value
-        group_modify(~{
-          fit1 <- loess(var1 ~ time, data = .x, span = span)
-          pred1 <- predict(fit1, newdata = data.frame(time = t_uniq))
-          fit2 <- loess(var2 ~ time, data = .x, span = span)
-          pred2 <- predict(fit2, newdata = data.frame(time = t_uniq))
-          data.frame(time = t_uniq, pred1 = pred1, pred2 = pred2)
-        })
+      # span <- 3*mean(diff(t_uniq))
+      # df_smth <- df_pair %>%
+      #   group_by(id) %>%
+      #   mutate(n1=sum(!is.na(var1)), n2=sum(!is.na(var2))) %>%
+      #   filter(n1>3 & n2>3) %>%
+      #   # remove individual will <=3 observations in either trajecotry
+      #   # to ensure the reliability of smoothed value
+      #   group_modify(~{
+      #     fit1 <- loess(var1 ~ time, data = .x, span = span)
+      #     pred1 <- predict(fit1, newdata = data.frame(time = t_uniq))
+      #     fit2 <- loess(var2 ~ time, data = .x, span = span)
+      #     pred2 <- predict(fit2, newdata = data.frame(time = t_uniq))
+      #     data.frame(time = t_uniq, pred1 = pred1, pred2 = pred2)
+      #   })
       
       # calculate correlation
-      df_cor <- df_pair %>% left_join(df_smth, by = c("id", "time")) %>% 
-        group_by(time) %>%
-        summarize(cor = cor(.data$pred1, .data$pred2, 
-                            use = "pairwise.complete.obs", method = input$cor_type),
-                  Npair = sum(complete.cases(.data$pred1, .data$pred2)/N)) #%>%
-        #filter(Npair > 0 )
-    }
+    #   df_cor <- df_pair %>% left_join(df_smth, by = c("id", "time")) %>% 
+    #     group_by(time) %>%
+    #     summarize(cor = cor(.data$pred1, .data$pred2, 
+    #                         use = "pairwise.complete.obs", method = input$cor_type),
+    #               Npair = sum(complete.cases(.data$pred1, .data$pred2)/N)) #%>%
+    #     #filter(Npair > 0 )
+    # }
     # display
-  p2 <- df_cor %>% 
-    filter(complete.cases(.)) %>%
-    ggplot()+
-    geom_point(aes(x=time, y=cor, alpha = Npair), size = 3)+
-    geom_line(aes(x=time, y=cor))+
-    labs(title = "Correlation of smoothed trajectories", x = input$time_var, y = " ", 
-         alpha = "Proportion of complete pairs")+
-    theme(legend.position = "bottom")+
-    guides(color = guide_legend(order = 1), 
-           alpha = guide_legend(order = 1))
-    if(!input$scaleY){p2 <- p2 + ylim(-1, 1)}# scale correlation axis
-    if(input$time_type == "Discrete"){p2 <- p2+scale_x_continuous(breaks = t_uniq)}
-    p2
+    p2 <- df_cor %>% 
+      filter(complete.cases(.)) %>%
+      ggplot()+
+      geom_point(aes(x=time, y=cor, alpha = Npair), size = 3)+
+      geom_line(aes(x=time, y=cor))+
+      labs(title = "Empirical correlation", x = input$time_var, y = " ", 
+           alpha = "Proportion of complete pairs")+
+      theme(legend.position = "bottom")+
+      guides(color = guide_legend(order = 1), 
+             alpha = guide_legend(order = 1))+
+      scale_x_continuous(breaks = t_uniq)
+      if(!input$scaleY){p2 <- p2 + ylim(-1, 1)}# scale correlation axis
+      p2
   })
   ###### note
   output$cor_trend_note <- renderText({
-    if(input$time_type=="Discrete"){
-      
+    # if(input$time_type=="Discrete"){
+    #   
       HTML("
-      Correlation measures are very sensitive to sample size. 
-      If the number of complete pairs is very small (i.e < 20), 
+      Correlation measures are very sensitive to sample size.
+      If the number of complete pairs is very small (i.e < 20),
       the calculated measures are less realiable and will affect downstream analysis.
       User may consider removing these time points from the dataset.
-      Details of these time points can be examined in the previous subtab. 
+      Details of these time points can be examined in the previous subtab.
       ")
       
-    } else {
+    # } else {
       
-      HTML("
-            <li>Smooth trajectories are estimated by LOcally Estimatated Scatterplot Smoothing (LOESS).
-            Individual tracks with no more than 3 observations are removed from this analysis, 
-            as observations are too sparse for reliable estimation. 
-            Details of these individuals can be exmained in the previous subtab.</li>
-            <li>Node color hue indicates the number of complete pairs of estiamted smoothed values used to calculate correlation at each time point.</li>")
-      
-    }
+      # HTML("
+      #       <li>Smooth trajectories are estimated by LOcally Estimatated Scatterplot Smoothing (LOESS).
+      #       Individual tracks with no more than 3 observations are removed from this analysis, 
+      #       as observations are too sparse for reliable estimation. 
+      #       Details of these individuals can be exmained in the previous subtab.</li>
+      #       <li>Node color hue indicates the number of complete pairs of estiamted smoothed values used to calculate correlation at each time point.</li>")
+      # 
+    # }
   
   })
   
@@ -784,7 +790,7 @@ server <- function(input, output) {
     if(input$time_type == "Discrete"){
            DynamicMDS(diss_mat(), lambda = 5)
     } else {
-        SplinesMDS(diss_mat(), lambda = 7, P = ncol(df_net())-1, tvec = t_uniq)
+        SplinesMDS(diss_mat(), lambda = 1, P = ncol(df_net())-1, tvec = t_uniq)
       # in this case, coord_list includes initial coordinates and cofficients
   }
   })

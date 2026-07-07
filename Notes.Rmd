@@ -47,6 +47,8 @@ For "empty slices", where no data is available for plot, we could skip this slid
   - What type of correlation? How to code the values?
   - How to write 
   
+  
+  
 # Journal
 
 [Journal of statistical software](https://www.jstatsoft.org/mission)
