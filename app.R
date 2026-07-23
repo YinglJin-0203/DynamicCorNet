@@ -267,6 +267,7 @@ ui <- fluidPage(
              mainPanel(
                h3("Integrated network of correlation"),
                plotOutput("int_net")
+               # dataTableOutput("test")
              )
            ))
 
@@ -276,7 +277,7 @@ ui <- fluidPage(
 )
 
 
-#### Server ####
+ #### Server ####
 
 server <- function(input, output) {
   options(shiny.maxRequestSize=10*1024^2)
@@ -775,8 +776,9 @@ server <- function(input, output) {
     obs_cors <- df_net2() %>%
       group_by(time) %>%
       group_map(~{cor(.x, use = "pairwise.complete.obs", method = input$mtype2)})
-    obs_cors
+   lapply(obs_cors, abs)
   })
+  
   
   # time
   t_uniq2 <- reactive({
@@ -784,12 +786,16 @@ server <- function(input, output) {
     sort(unique(df_net2()$time))
   })
   
+  
   # weight
   wt_vec <- reactive({
-    req(t_uniq2(), input$time_wt)
-    wt_vec <- rep(1, length(t_uniq2()))
+    req(t_uniq2())
+    nt <- length(t_uniq2())
+        # LOCF weights
     if(input$time_wt){
       wt_vec <- c(diff(t_uniq2()), 0)
+    } else {
+      wt_vec <- rep(1, nt)
     }
     wt_vec
   })
@@ -803,30 +809,29 @@ server <- function(input, output) {
      #               min = diss_range[1], max = diss_range[2], value = diss_range[1])
      # } else {
        sliderInput("thres_m2", label = "Show average correlation above",
-                   min =0, max = 1, value = 0.5)
+                   min =0, max = 1, value = 0.1)
      # }
    })
   
    # aggregated correlation
    int_cor <- reactive({
      req(obs_cors2(), wt_vec())
-     cor_arr <- array(unlist(obs_cors2()), 
-                       dim = c(nrow(obs_cors2()[[1]]), ncol(obs_cors2()[[1]]), length(obs_cors2())))
-     int_cor <- apply(cor_arr, c(1, 2), 
-                       function(x){sum(x*wt_vec(), na.rm = T)/sum(wt_vec())})
+     wts <- wt_vec()
+     cor_arr <- array(unlist(obs_cors2()),
+                       dim = c(nrow(obs_cors2()[[1]]),
+                               ncol(obs_cors2()[[1]]),
+                               length(obs_cors2())))
+     int_cor <- apply(cor_arr, c(1, 2),
+                       function(x){sum(x*wts, na.rm = T)/sum(wts)})
+     colnames(int_cor) <- colnames(obs_cors2()[[1]])
+     rownames(int_cor) <- rownames(obs_cors2()[[1]])
      int_cor
    })
    
   # aggregated dissimilarity matrix
   int_diss <- reactive({
-    req(obs_cors2(), wt_vec())
-    diss_list <- lapply(obs_cors2(), function(x){1-abs(x)})
-    diss_arr <- array(unlist(diss_list), 
-                      dim = c(nrow(diss_list[[1]]), ncol(diss_list[[1]]), length(diss_list)))
-    # average over the third dimension
-    int_diss <- apply(diss_arr, c(1, 2), 
-                      function(x){sum(x*wt_vec(), na.rm = T)/sum(wt_vec())})
-    int_diss
+    req(int_cor())
+    1-int_cor()
   })
   
   # layout
@@ -834,53 +839,50 @@ server <- function(input, output) {
    req(int_diss())
    smacofSym(int_diss(), type = "ordinal")$conf
  })
-   
+ 
  # plot
  output$int_net <- renderPlot({
    withProgress(
      value = 0, message = "Processing", detail = "This may take a while...",
      {
-       req(int_coords(), int_cor(), df_net2())
-       
+       req(int_coords(), int_cor())
+
        int_layout <- int_coords()
        int_cor <- int_cor()
-       
+
        # edges — exclude NAs before filtering by threshold
        edges <- which(abs(int_cor) > input$thres_m2 & upper.tri(int_cor) & !is.na(int_cor), arr.ind = T)
        from <- rownames(int_cor)[edges[, 1]]
        to   <- colnames(int_cor)[edges[, 2]]
        wt   <- int_cor[edges]
-       
+
        # build edge data frame — empty data frame if no edges
        edge_df <- if (length(wt) > 0) {
          data.frame(from = from, to = to, weight = wt)
        } else {
          data.frame(from = character(0), to = character(0), weight = numeric(0))
        }
-       
+
        # initialize
        int_net <- igraph::graph_from_data_frame(
          d        = edge_df,
          directed = F,
          vertices = data.frame(name = rownames(int_cor))
        )
-       
+
+       # int_net <- igraph::graph_from_adj_list(int_diss_mat)
+
        # visual elements of edges
        E(int_net)$width <- abs(E(int_net)$weight) * 8
        E(int_net)$color <- ifelse(E(int_net)$weight > 0, "steelblue", "tomato")
-       
-       # visual elements of vertices
-       # miss_var_id <- sapply(df_i[, rownames(cor_i)], function(x) all(is.na(x)))
-       # V(net_i)$color       <- ifelse(miss_var_id, NA, "lightgrey")
-       # V(net_i)$frame.color <- "lightgrey"
-       
+
        incProgress(1)
-       
+
        # save to a variable in the outer environment
        int_net <<- int_net
        int_layout <<- int_layout
      })
-   
+
    plot(int_net, layout = int_layout,
         vertex.size        = 20,
         vertex.label.cex   = 1,
@@ -898,69 +900,13 @@ server <- function(input, output) {
      bty    = "n",                # no box around legend
      horiz = TRUE, xpd = TRUE, inset = c(0, -0.15)
    )
-   })
-   
- 
- 
- # # clustering
- #  output$nclust2 <- renderUI({
- #    req(input$hclust2)
- #    numericInput("nclust2", label = "Number of groups", value = 1)
- #  })
- #  # ## values for sanity checks: uniform or all missing across all time points
- #  # sanity_check2 <- reactive({
- #  #   req(df(), input$id_var, input$time_var, input$select_var4, confirmed2())
- #  #   unique_val <- df()[ , c(input$time_var, confirmed2())] %>%
- #  #     rename(time = input$time_var) %>% group_by(time) %>%
- #  #     summarize_all(~{length(unique(.))}) %>% ungroup() %>%
- #  #     summarise(across(everything(), ~all(.x==1, na.tm = T))) %>%
- #  #     select(where(isTRUE))
- #  #   colnames(unique_val)
- #  # })
- #  ## coordinates
- #  int_coords <- reactive({
- #    req(int_diss())
- #    mds(int_diss())$conf
- #  })
- #  ## hierarchical clustering result
- #  int_hclust <- reactive({
- #    req(int_diss())
- #    hclust(as.dist(int_diss()))
- #  })
- #  ## network plot
- #  output$int_net <- renderPlot({
- #    req(int_adj(), input$thres_m2, int_coords())
- #    int_net <- graph_from_adjacency_matrix(int_adj(), mode = "undirected", weighted = T, diag=F)
- #    # edges
- #    E(int_net)$width <- E(int_net)$weight*7
- #    # node properties
- #    V(int_net)$color <- rgb(0.2, 0.4, 0.8, alpha=0.4)
- #    coords <- int_coords()
- #    # if choose to visualize grouping results
- #    if(input$hclust2){
- #      clust_group <- cutree(int_hclust(), k = input$nclust2)
- #      vcolor <- brewer.pal(input$nclust2, "Accent")[clust_group]
- #      names(vcolor) <- names(clust_group)
- #      V(int_net)$color <- vcolor[V(int_net)$name]
- #    }
- #    plot(int_net, layout=int_coords(),
- #           vertex.color =  V(int_net)$color,
- #           vertex.frame.color=  V(int_net)$color,
- #           vertex.label.cex=1,
- #           vertex.size = 20)
- #  })
- #  output$int_tree <- renderPlot({
- #    req(input$hclust2)
- #    ggdendrogram(int_hclust(), rotate = F, size = 2)+
- #            labs(title = "")
- # 
- #  })
- #  ## note
- #  output$int_note <- renderPrint({
- #    HTML(paste0("Both plots are generated based on the integerated ", input$mtype2,
- #                " correlation matrix. To change the type of correlation, please move back to the second tab."))
- #  })
+ })
 
+ # output$test <- renderDataTable({
+ #   datatable(int_cor())
+ # })
+ 
+ 
 }
 
 

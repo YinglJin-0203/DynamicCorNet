@@ -6,4 +6,7 @@
 data/
 .positai
 
-Simulation/Output/
+Simulation/Data
+Simulation/Logs
+Simulation/Output
+
