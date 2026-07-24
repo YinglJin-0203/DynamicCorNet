@@ -47,7 +47,7 @@ set.seed(62)
 
 source("Code/Helpers.R")
 source("Code/dMDS.R")
-source("Code/dissimilarity.R")
+source("Code/get_similarity.R")
 # source("Simulation/Code/SimFit.R")
 
 
@@ -388,7 +388,7 @@ server <- function(input, output) {
                 colnames = c(input$time_var, "Mean", "SD", "Min", "Max", "# of missing values")
                 ) %>%
         formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2) %>%
-        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(20, c(NA,"#ffe6e6")))
+        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(10, c(NA,"#ffe6e6")))
     } else {
       # subject summary
       sum_tb <- df_uni() %>% group_by(id) %>%
@@ -578,15 +578,18 @@ server <- function(input, output) {
   observeEvent(input$confirm, {confirmed(input$select_var3)})
   df_net <- reactive({
     req(df(), input$id_var, input$time_var, confirmed())
-    df()[, c(input$time_var, confirmed())] %>%
-      rename(time = input$time_var) %>%
-      filter(!if_all(confirmed(), is.na)) # remove empty columns
+    df_net <- df()[, c(input$time_var, confirmed())] %>%
+      rename(time = input$time_var) 
+    # remove sparse columns
+    df_net <- df_net %>% group_by(time) %>% group_modify(~clean_sparse_columns(.x, min_obs = 10))
+      # filter(!if_all(confirmed(), is.na)) # remove empty columns
+    df_net
   })
   ## time axis
   output$time_bar <- renderUI({
     req(df_net(), input$time_var)
     # time bar: by the original time
-    tvec <- sort(unique(df_net()[, "time"]))
+    tvec <- sort(unique(df_net()[["time"]]))
       time_bar <- sliderTextInput("time_bar", label = input$time_var, choices = tvec,
                                   selected = tvec[1], grid = TRUE)
     time_bar
@@ -721,15 +724,17 @@ server <- function(input, output) {
              edge.curved        = 0.2,
              margin             = c(0, 0, 0.2, 0))
         # add edge legend
-        legend(
-          x = "bottom",    # position: "topleft", "topright", "bottomleft", "bottomright"
-          legend = c("Positive", "Negative"),
-          col    = c("steelblue", "tomato"),
-          lwd    = 3,                  # line width
-          lty    = 1,                  # line type
-          bty    = "n",                # no box around legend
-          horiz = TRUE, xpd = TRUE, inset = c(0, -0.15)
-        )
+        if(input$cor_type3 %in% c("pearson", "spearman")){
+          legend(
+            x = "bottom",    # position: "topleft", "topright", "bottomleft", "bottomright"
+            legend = c("Positive", "Negative"),
+            col    = c("steelblue", "tomato"),
+            lwd    = 3,                  # line width
+            lty    = 1,                  # line type
+            bty    = "n",                # no box around legend
+            horiz = TRUE, xpd = TRUE, inset = c(0, -0.15)
+          )
+        }
   })
 
   output$vis_info <- renderPrint({
@@ -761,15 +766,14 @@ server <- function(input, output) {
       filter(!if_all(confirmed2(), is.na)) # remove empty columns
   })
   
-  # observed correlation
+  # observed similarity
   obs_cors2 <- reactive({
     req(df_net2(), input$mtype2)
     obs_cors <- df_net2() %>%
       group_by(time) %>%
-      group_map(~{cor(.x, use = "pairwise.complete.obs", method = input$mtype2)})
-   lapply(obs_cors, abs)
+      group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = input$cor_type3)})
+   obs_cors2
   })
-  
   
   # time
   t_uniq2 <- reactive({
