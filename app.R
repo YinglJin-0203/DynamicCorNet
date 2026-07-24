@@ -47,6 +47,7 @@ set.seed(62)
 
 source("Code/Helpers.R")
 source("Code/dMDS.R")
+source("Code/dissimilarity.R")
 # source("Simulation/Code/SimFit.R")
 
 
@@ -217,15 +218,10 @@ ui <- fluidPage(
                # choose correlation type
                selectInput("cor_type3", label="Type of correlation/association", 
                            choices = list("pearson", "spearman", "euclidean")),
-               tagList(
-                 icon("info-circle"),
-                 em("Strong association is indicated by large absolute values of correlation, or small values of euclidean distance.")
-               ),
-               br(),
-               tagList(
-                 icon("info-circle"),
-                 em("While correlation always has a range of [0, 1], the range of euclidean distance is data-dependent.")
-               ),
+               # tagList(
+               #   icon("info-circle"),
+               #   em("Strong association is indicated by large absolute values of correlation, or small values of euclidean distance.")
+               # ),
                br(),
                uiOutput("lambda"),
                br(),
@@ -545,9 +541,9 @@ server <- function(input, output) {
       geom_tile(color = "white") +
       geom_text(aes(label = round(correlation, 2)), size = 3) +
       scale_fill_gradient2(
-        low     = "#377EB8",   # negative correlation
+        low     = "#E41A1C",   # negative correlation
         mid     = "white",
-        high    = "#E41A1C",   # positive correlation
+        high    = "#377EB8",   # positive correlation
         midpoint = 0,
         limits  = c(-1, 1),
         name    = "Correlation"
@@ -573,14 +569,8 @@ server <- function(input, output) {
   ## threshold
   output$thres_m <- renderUI({
     req(input$cor_type3)
-    if(input$cor_type3 == "euclidean"){
-      diss_range <- round(range(unlist(diss_mat()), na.rm = T))
-      sliderInput("thres_m", label = "Show distance below",
-                  min = diss_range[1], max = diss_range[2], value = diss_range[1])
-    } else {
-      sliderInput("thres_m", label = "Show correlation above",
+      sliderInput("thres_m", label = "Show similarity above",
                   min = 0, max = 1, value = 0.5)
-    }
   })
 
   ## data set to analyze
@@ -603,12 +593,12 @@ server <- function(input, output) {
   })
 
   # main panel outputs
-  # observed correlation
+  # observed similarity
   obs_cors <- reactive({
     req(df_net(), input$cor_type3)
     obs_cors <- df_net() %>%
       group_by(time) %>%
-      group_map(~{cor(.x, use = "pairwise.complete.obs", method = input$cor_type3)})
+      group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = input$cor_type3)})
     obs_cors
   })
   # LOCF
@@ -624,7 +614,8 @@ server <- function(input, output) {
     }
     filled_obs_cor
   })
-
+  
+  # time grid
   t_uniq <- reactive({
     req(df_net())
     sort(unique(df_net()$time))
@@ -891,15 +882,17 @@ server <- function(input, output) {
         edge.curved        = 0.2,
         margin             = c(0, 0, 0.2, 0))
    # add edge legend
-   legend(
-     x = "bottom",    # position: "topleft", "topright", "bottomleft", "bottomright"
-     legend = c("Positive", "Negative"),
-     col    = c("steelblue", "tomato"),
-     lwd    = 3,                  # line width
-     lty    = 1,                  # line type
-     bty    = "n",                # no box around legend
-     horiz = TRUE, xpd = TRUE, inset = c(0, -0.15)
-   )
+   if(input$cor_type3 %in% c("pearson", "spearman")){
+     legend(
+       x = "bottom",    # position: "topleft", "topright", "bottomleft", "bottomright"
+       legend = c("Positive", "Negative"),
+       col    = c("steelblue", "tomato"),
+       lwd    = 3,                  # line width
+       lty    = 1,                  # line type
+       bty    = "n",                # no box around legend
+       horiz = TRUE, xpd = TRUE, inset = c(0, -0.15)
+     )
+   }
  })
 
  # output$test <- renderDataTable({
