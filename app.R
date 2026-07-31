@@ -247,7 +247,9 @@ ui <- fluidPage(
                # choose correlation type
                selectInput("mtype2", label="Type of correlation/association",
                            choices = list("pearson", "spearman", "euclidean")),
-               uiOutput("thres_m2"),
+               br(),
+               sliderInput("thres_m2", label = "Show average similarity above",
+                           min =0, max = 1, value = 0.1),
                # weight
                checkboxInput("time_wt", label = "Weigh by time interval?", value = T),
                tagList(
@@ -262,8 +264,8 @@ ui <- fluidPage(
              
              mainPanel(
                h3("Integrated network of correlation"),
-               plotOutput("int_net")
-               # dataTableOutput("test")
+               plotOutput("int_net"),
+               dataTableOutput("test")
              )
            ))
 
@@ -762,18 +764,18 @@ server <- function(input, output) {
   df_net2 <- reactive({
     req(df(), input$id_var, input$time_var, confirmed2())
     df()[, c(input$time_var, confirmed2())] %>%
-      rename(time = input$time_var) %>%
-      filter(!if_all(confirmed2(), is.na)) # remove empty columns
+      rename(time = input$time_var) # remove empty columns
   })
   
   # observed similarity
   obs_cors2 <- reactive({
     req(df_net2(), input$mtype2)
-    obs_cors <- df_net2() %>%
+    obs_cors2 <- df_net2() %>%
       group_by(time) %>%
       group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = input$cor_type3)})
    obs_cors2
   })
+  # output$test <- renderDataTable(obs_cor2[[1]])
   
   # time
   t_uniq2 <- reactive({
@@ -796,17 +798,17 @@ server <- function(input, output) {
   })
   
    # correlation/association threshold
-   output$thres_m2 <- renderUI({
-     req(input$mtype2)
-     # if(input$mtype2 == "euclidean"){
-     #   diss_range <- round(range(int_diss(), na.rm = T))
-     #   sliderInput("thres_m2", label = "Show distance below",
-     #               min = diss_range[1], max = diss_range[2], value = diss_range[1])
-     # } else {
-       sliderInput("thres_m2", label = "Show average correlation above",
-                   min =0, max = 1, value = 0.1)
-     # }
-   })
+   # output$thres_m2 <- renderUI({
+   #   req(input$mtype2)
+   #   # if(input$mtype2 == "euclidean"){
+   #   #   diss_range <- round(range(int_diss(), na.rm = T))
+   #   #   sliderInput("thres_m2", label = "Show distance below",
+   #   #               min = diss_range[1], max = diss_range[2], value = diss_range[1])
+   #   # } else {
+   #     sliderInput("thres_m2", label = "Show average correlation above",
+   #                 min =0, max = 1, value = 0.1)
+   #   # }
+   # })
   
    # aggregated correlation
    int_cor <- reactive({
