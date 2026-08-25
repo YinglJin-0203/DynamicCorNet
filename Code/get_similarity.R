@@ -1,4 +1,4 @@
-#' Calculate a dissimilarity matrix from a multivariate dataset
+#' Calculate a similarity matrix from a multivariate dataset
 #'
 #' @param data A data frame or matrix of numeric variables (rows = observations,
 #'   columns = variables)

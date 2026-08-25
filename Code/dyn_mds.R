@@ -1,19 +1,3 @@
-# -----------------------------------------------------------------------------
-# DYNAMIC MDS CORE
-#   Minimises: sum_t stress_t  +  lambda * sum_t ||X_t - X_{t-1}||^2_F
-#   via alternating majorization (SMACOF-style) with temporal coupling.
-# -----------------------------------------------------------------------------
-
-#' Convert correlation matrix to dissimilarity (1 - |r|, then scaled)
-#' C: observed correlation matrix
-corr_to_dist <- function(C) as.dist(1 - abs(C))
-
-#' Weighted MDS stress (raw stress, no normalization)
-raw_stress <- function(X, Delta) {
-  D <- as.matrix(dist(X))
-  sum((D - Delta)^2)
-}
-
 #' One full dynamic MDS fit for a given lambda
 #'
 #' @param obs_corrs  list of T observed correlation matrices
@@ -91,36 +75,3 @@ dyn_mds <- function(obs_corrs, lambda = 1, d = 2,
     iters      = iter
   )
 }
-
-# -----------------------------------------------------------------------------
-# LAMBDA SWEEP  — compute stress / movement / objective across lambda grid
-# -----------------------------------------------------------------------------
-#' obs_corrs: list of correlation matrices from observed dataset
-
-lambda_sweep <- function(obs_corrs, lambdas = 10^seq(-3, 3, by = 0.5), d = 2) {
-  n_lambda <- length(lambdas)
-  results  <- vector("list", n_lambda)
-  
-  # Warm start: fit largest lambda first, pass solution to next
-  lam_sorted <- sort(lambdas, decreasing = TRUE)
-  X_init <- NULL
-  
-  for (i in seq_along(lam_sorted)) {
-    lam <- lam_sorted[i]
-    fit <- dyn_mds(obs_corrs, lambda = lam, d = d, X_init = X_init)
-    results[[i]] <- list(
-      lambda    = lam,
-      stress    = fit$stress,
-      movement  = fit$movement,
-      objective = fit$objective
-    )
-    X_init <- fit$embeddings   # warm start
-    # cat(sprintf("lambda = %7.4f | stress = %8.2f | movement = %8.2f | obj = %8.2f\n | iter = %8.2f\n",
-    #             lam, fit$stress, fit$movement, fit$objective, fit$iter))
-  }
-  
-  df <- do.call(rbind, lapply(results, as.data.frame))
-  df[order(df$lambda), ]
-}
-
-
