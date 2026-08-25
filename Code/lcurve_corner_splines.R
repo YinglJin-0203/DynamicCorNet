@@ -1,47 +1,11 @@
-
-
-#### Result Analysis ####
-
-#### L-CURVE CORNER DETECTION ####
-
-
-# Moving average 
-lcurve_corner_ma <- function(sweep_df) {
-  s <- log(sweep_df$stress)
-  m <- log(sweep_df$movement)
-  lam <- log(sweep_df$lambda)
-  
-  # Smooth before differentiating (3-point moving average)
-  smooth3 <- function(x) {
-    n <- length(x)
-    c(x[1], (x[1:(n-2)] + x[2:(n-1)] + x[3:n]) / 3, x[n])
-  }
-  s <- smooth3(s); m <- smooth3(m)
-  
-  # Numerical derivatives w.r.t. log(lambda)
-  ds <- diff(s) / diff(lam); ds <- c(ds[1], ds)
-  dm <- diff(m) / diff(lam); dm <- c(dm[1], dm)
-  d2s <- diff(ds) / diff(lam); d2s <- c(d2s[1], d2s)
-  d2m <- diff(dm) / diff(lam); d2m <- c(d2m[1], d2m)
-  
-  # Curvature
-  kappa <- abs(d2s * dm - ds * d2m) / (ds^2 + dm^2)^1.5
-  kappa[!is.finite(kappa)] <- 0
-  
-  idx <- which.max(kappa)
-  list(
-    lambda_star = sweep_df$lambda[idx],
-    idx         = idx,
-    kappa       = kappa
-  )
-}
-
-
-
-
-
-# splines corner detection
-lcorner_splines <- function(sweep_df, log_scale = TRUE, spar = NULL, plot = TRUE) {
+#' Title: L-curve corner search of analytically curvature from splines-smoothed L-curve
+#' 
+#' @param sweep_df: dataframe with stress(loss), movement(penalization) and lambda grid
+#' @param log_scale: log-transformation of stress and movement
+#' @param plot: produce plot to illustrate the search result
+#' @param spar: a scalar or a list of two scalars for splines smoothing parameter of stress and movement
+#' 
+lcurve_corner_splines <- function(sweep_df, log_scale = TRUE, spar = NULL, plot = TRUE) {
   
   t <- sweep_df$lambda
   
@@ -170,97 +134,4 @@ lcorner_splines <- function(sweep_df, log_scale = TRUE, spar = NULL, plot = TRUE
     spline_s    = spline_s,
     spline_m    = spline_m
   )
-}
-
-#### Diagnostics ####
-
-# DIAGNOSTIC PLOTS
-
-plot_sweep <- function(sweep_df, scenario_name, lambda_star = NULL) {
-  op <- par(mfrow = c(2, 2), mar = c(4, 4, 3, 1))
-  lam_log <- log10(sweep_df$lambda)
-  
-  # 1. Stress vs log(lambda)
-  plot(lam_log, sweep_df$stress, type = "b", pch = 19, col = "#2166ac",
-       xlab = "log10(lambda)", ylab = "Stress", main = "Stress")
-  if (!is.null(lambda_star))
-    abline(v = log10(lambda_star), col = "red", lty = 2, lwd = 2)
-  
-  # 2. Movement vs log(lambda)
-  plot(lam_log, sweep_df$movement, type = "b", pch = 19, col = "#d6604d",
-       xlab = "log10(lambda)", ylab = "Movement", main = "Movement")
-  if (!is.null(lambda_star))
-    abline(v = log10(lambda_star), col = "red", lty = 2, lwd = 2)
-  
-  # 3. Objective vs log(lambda)
-  plot(lam_log, sweep_df$objective, type = "b", pch = 19, col = "#4dac26",
-       xlab = "log10(lambda)", ylab = "Objective", main = "Joint Objective")
-  if (!is.null(lambda_star))
-    abline(v = log10(lambda_star), col = "red", lty = 2, lwd = 2)
-  
-  # 4. L-curve: log(Stress) vs log(Movement)
-  plot(log(sweep_df$stress), log(sweep_df$movement),
-       type = "b", pch = 19, col = "#762a83",
-       xlab = "log(Stress)", ylab = "log(Movement)", main = "L-Curve")
-  if (!is.null(lambda_star)) {
-    idx <- which.min(abs(sweep_df$lambda - lambda_star))
-    points(log(sweep_df$stress[idx]), log(sweep_df$movement[idx]),
-           pch = 8, cex = 2, col = "red", lwd = 2)
-  }
-  
-  mtext(paste("Scenario:", scenario_name), outer = TRUE, line = -1.5, cex = 1.1)
-  par(op)
-}
-
-# PLOT STRESS PLATEAU DIAGNOSTIC
-
-plot_stress_plateau <- function(sweep_df, plateau, scenario_name) {
-  op  <- par(mfrow = c(1, 2), mar = c(4, 4, 3, 1))
-  lam_log <- log10(sweep_df$lambda)
-  
-  # Panel 1: normalized stress with plateau upper bound marked
-  plot(lam_log, sweep_df$stress_norm,
-       type = "b", pch = 19, col = "#2166ac",
-       xlab = "log10(lambda)", ylab = "Normalized Stress",
-       main = paste("Stress Plateau —", scenario_name))
-  abline(v   = log10(plateau$lambda_ub),
-         col = "red", lty = 2, lwd = 2)
-  legend("topleft",
-         legend = sprintf("lambda_UB = %.4f", plateau$lambda_ub),
-         col = "red", lty = 2, lwd = 2, bty = "n")
-  
-  # Panel 2: marginal stress increase with threshold
-  plot(lam_log, plateau$delta_s,
-       type = "b", pch = 19, col = "#d6604d",
-       xlab = "log10(lambda)",
-       ylab = "Marginal stress increase / unit log(lambda)",
-       main = "Marginal Stress Rate")
-  abline(h   = plateau$threshold,
-         col = "darkgreen", lty = 2, lwd = 2)
-  abline(v   = log10(plateau$lambda_ub),
-         col = "red", lty = 2, lwd = 2)
-  legend("topright",
-         legend = c(sprintf("threshold (eps=%.2f)", 0.05),
-                    sprintf("lambda_UB = %.4f", plateau$lambda_ub)),
-         col = c("darkgreen", "red"), lty = 2, lwd = 2, bty = "n")
-  
-  par(op)
-}
-
-#### Clean and sanity checks ####
-clean_sparse_columns <- function(df, min_obs = 10) {
-  # For each column, count non-missing observations
-  obs_counts <- sapply(df, function(col) sum(!is.na(col)))
-  
-  # Identify columns with fewer than min_obs non-missing values
-  sparse_cols <- names(obs_counts)[obs_counts < min_obs]
-  
-  if (length(sparse_cols) > 0) {
-    message("Setting these columns entirely to NA (", 
-            paste(sparse_cols, collapse = ", "), 
-            ") due to having fewer than ", min_obs, " observations.")
-    df[sparse_cols] <- NA
-  }
-  
-  return(df)
 }

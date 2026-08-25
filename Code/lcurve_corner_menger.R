@@ -3,8 +3,7 @@
 #' @param sweep_df: dataframe with stress(loss), movement(penalization) and lambda grid
 #' @param log_scale: log-transformation of stress and movement
 #' @param plot: produce plot to illustrate the search result
-
-# Menger curvature
+#' 
 lcurve_corner_menger <- function(sweep_df, log_scale = TRUE, plot = TRUE) {
   
   # --- Curve coordinates ---------------------------------------------------
