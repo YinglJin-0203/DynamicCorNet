@@ -1,19 +1,19 @@
 #' One full dynamic MDS fit for a given lambda
 #'
-#' @param obs_corrs  list of T observed correlation matrices
+#' @param obs_sim    list of observed similarity matrices. Each matrix correspondings to observed similarity at a time point
 #' @param lambda     temporal smoothness penalty weight
 #' @param d          embedding dimension
 #' @param maxit      max iterations
 #' @param tol        convergence tolerance
 #' @param X_init     optional list of T initial embeddings
 
-dyn_mds <- function(obs_corrs, lambda = 1, d = 2,
+dyn_mds <- function(obs_sim, lambda = 1, d = 2,
                     maxit = 500, tol = 1e-5, X_init = NULL) {
-  T  <- length(obs_corrs)
-  p  <- nrow(obs_corrs[[1]])
+  T  <- length(obs_sim)
+  p  <- nrow(obs_sim[[1]])
   
-  # Target dissimilarity matrices
-  Deltas <- lapply(obs_corrs, function(C) as.matrix(corr_to_dist(C)))
+  # similarity to dissimilarity
+  Deltas <- lapply(obs_sim, function(C) as.matrix(corr_to_dist(C)))
   
   # Initialise embeddings via classical MDS on time-averaged dissimilarity
   if (is.null(X_init)) {

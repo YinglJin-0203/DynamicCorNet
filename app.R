@@ -11,28 +11,14 @@ library(here)
 library(DT)
 library(tidyverse)
 library(gridExtra)
-# library(arsenal)
 library(htmltools)
 library(smacof)
 library(splines2)
 library(RColorBrewer)
-# library(ggalluvial)
-# library(ggdendro)
 library(mgcv)
 library(igraph)
 library(ggplot2)
-# library(ggpubr)
-# library(ggfun)
 library(rsconnect)
-# library(niehsHeader)
-# library(niehsFooter)
-
-
-# print(exists("gg_par"))
-
-# if (!exists("gg_par", mode = "function")) {
-#   gg_par <- ggplot2:::gg_par
-# }
 
 
 print(sessionInfo())
@@ -50,7 +36,8 @@ source("Code/dyn_mds.R")
 source("Code/lambda_sweep.R")
 source("Code/dMDS_Helpers.R")
 source("Code/get_similarity.R")
-# source("Simulation/Code/SimFit.R")
+source("Code/lcurve_corner_dist.R")
+source("Code/lcurve_corner_menger.R")
 
 
 
@@ -59,11 +46,6 @@ source("Code/get_similarity.R")
 # UI includes the following elements
 # visualization threshold of correlation
 ui <- fluidPage(
-  
-  # headers
-  # niehs_head_tags(),
-  # 
-  # niehs_header(),
   
   navbarPage(title = "Multivariate Longitudinal Exploratory Data Analysis",
   # tab 1: data upload and prespecifications
@@ -641,7 +623,7 @@ server <- function(input, output) {
   output$lambda<- renderUI({
     req(grid_search())
       # menger curvature
-      menger_lam <- menger_corner(grid_search(), plot = FALSE)
+      menger_lam <- lcurve_corner_menger(grid_search(), plot = FALSE)
       ## max distance
       maxdist_lam <- lcurve_corner_dist(grid_search())
       # scroll bar with modified end labels
@@ -667,7 +649,7 @@ server <- function(input, output) {
   # refit at best lambda
   layout <- reactive({
     req(input$lambda, filled_obs_cor())
-    dmds_fit <- dyn_mds(obs_corrs = filled_obs_cor(), lambda = input$lambda, d = 2)
+    dmds_fit <- dyn_mds(obs_sim = filled_obs_cor(), lambda = input$lambda, d = 2)
     dmds_fit$embeddings
   })
 
