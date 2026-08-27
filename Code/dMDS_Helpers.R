@@ -1,5 +1,7 @@
 # =============================================================================
 # Helper functions for dMDS algorithm
+# Will be used by other functions
+# but not avaialble to users
 # =============================================================================
 
 #' Convert correlation matrix to dissimilarity (1 - |r|, then scaled)

@@ -31,7 +31,6 @@ set.seed(62)
 
 #### Helper functions #### 
 
-source("Code/Helpers.R")
 source("Code/dyn_mds.R")
 source("Code/lambda_sweep.R")
 source("Code/dMDS_Helpers.R")

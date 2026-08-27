@@ -2,7 +2,11 @@
 #'
 #' @param sweep_df: dataframe with stress(loss), movement(penalization) and lambda grid
 #'
-#' @returns
+#' @returns a list of three elements
+#' \item{lambda_star}{a scalar. the value of regularization parameter corresponding to L-curve corner}
+#' \item{idx}{a integer. the position of lambda_star on the search grid}
+#' \item{kappa}{a vector. the analytical curvature at each of the smoothed L-curve}
+#' 
 #' @export
 #'
 #' @examples

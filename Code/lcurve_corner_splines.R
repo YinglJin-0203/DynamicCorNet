@@ -5,6 +5,13 @@
 #' @param plot: produce plot to illustrate the search result
 #' @param spar: a scalar or a list of two scalars for splines smoothing parameter of stress and movement
 #' 
+#' @returns a list of five elements
+#' \item{lambda_star}{a scalar. the value of regularization parameter corresponding to L-curve corner}
+#' \item{idx}{a integer. the position of lambda_star on the search grid}
+#' \item{kappa}{a vector. the analytical curvature at each point of the smoothed L-curve along the original grid}
+#' \item{t_fine}{a finer grid constructed based on the original search grid}
+#' \item{kappa_fine}{a vector. the analytical curvature each point of the smoothed L-curve along t_fine}
+#' 
 lcurve_corner_splines <- function(sweep_df, log_scale = TRUE, spar = NULL, plot = TRUE) {
   
   t <- sweep_df$lambda
@@ -130,8 +137,8 @@ lcurve_corner_splines <- function(sweep_df, log_scale = TRUE, spar = NULL, plot 
     idx         = idx,
     kappa       = kappa_grid,
     kappa_fine  = kappa_fine,
-    t_fine      = t_fine,
-    spline_s    = spline_s,
-    spline_m    = spline_m
+    t_fine      = t_fine
+    # spline_s    = spline_s,
+    # spline_m    = spline_m
   )
 }

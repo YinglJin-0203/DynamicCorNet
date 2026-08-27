@@ -1,4 +1,4 @@
-#' Calculate a similarity matrix from a multivariate dataset
+#' Calculate a similarity matrix from a multivariate datas et
 #'
 #' @param data A data frame or matrix of numeric variables (rows = observations,
 #'   columns = variables)
@@ -7,6 +7,8 @@
 #'   passed to cor() (default "pairwise.complete.obs")
 #'
 #' @return A dissimilarity matrix (class "dist" for euclidean, matrix for correlation methods)
+#' 
+#' 
 get_similarity <- function(data, method = c("pearson", "spearman", "euclidean"),
                                use = "pairwise.complete.obs") {
   

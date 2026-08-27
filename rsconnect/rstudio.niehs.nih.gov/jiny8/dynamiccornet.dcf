@@ -5,9 +5,9 @@ account: jiny8
 server: rstudio.niehs.nih.gov
 hostUrl: https://rstudio.niehs.nih.gov/__api__
 appId: 462
-bundleId: 2122
+bundleId: 2165
 url: https://rstudio.niehs.nih.gov/mleda/
 version: 1
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: Code/GroupSumFigure.R|Code/HclustCoord.R|Code/SimResults.R|data/CleanData.R|data/IFD126001_DemographyDataset.csv|data/IFD126005_IFED_GIRLS.csv|data/IFEDAppData.csv|data/IFEDDemoData.csv|Notes.html|Notes.Rmd|README.md|SampleData/df_sample.csv|SampleData/SimCase1.csv|SampleData/Simulation.R|source.html|Manuscripts|Simulation
+ignoredFiles: .Rapp.history|Notes.html|Notes.Rmd|README.md|SampleData/df_sample.csv|SampleData/SimCase1.csv|SampleData/Simulation.R|Simulation/Code/SimCombined.R|Simulation/Code/SimData.R|Simulation/Code/SimFit.R|Simulation/Code/SimHelpers.r|Simulation/Code/SimResults.R|source.html|Manuscripts

@@ -4,6 +4,12 @@
 #' @param log_scale: log-transformation of stress and movement
 #' @param plot: produce plot to illustrate the search result
 #' 
+#' 
+#' @returns a list of three elements
+#' \item{lambda_star}{a scalar. the value of regularization parameter corresponding to L-curve corner}
+#' \item{idx}{a integer. the position of lambda_star on the search grid}
+#' \item{kappa_M}{a vector. the Menger curvature at each point  of the L-curve}
+#' 
 lcurve_corner_menger <- function(sweep_df, log_scale = TRUE, plot = TRUE) {
   
   # --- Curve coordinates ---------------------------------------------------
@@ -106,7 +112,7 @@ lcurve_corner_menger <- function(sweep_df, log_scale = TRUE, plot = TRUE) {
     lambda_star = lambda_star,
     idx         = idx,
     kappa_M     = kappa_M,
-    h           = h_vec,
-    R           = R_vec
+    # h           = h_vec,
+    # R           = R_vec
   )
 }

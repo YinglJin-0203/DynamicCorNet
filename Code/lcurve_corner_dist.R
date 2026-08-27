@@ -1,8 +1,11 @@
 #' Title: L-curve corner detection by the maximum perpendicular distance to the line connecting both ends
 #'
-#' @param sweep_df: dataframe with stress(loss), movement(penalization) and lambda grid
+#' @param sweep_df: a data frame with stress(loss), movement(penalization) and lambda grid
 #'
-#' @returns 
+#' @returns a list of three elements
+#' \item{lambda_star}{a scalar. the value of regularization parameter corresponding to L-curve corner}
+#' \item{idx}{a integer. the position of lambda_star on the search grid}
+#' \item{dist_to_line}{a vector. the perpendicular distance from each point to the line connecting both ends of the L-curve}
 #' 
 #' 
 lcurve_corner_dist <- function(sweep_df) {

@@ -1,11 +1,19 @@
 #' One full dynamic MDS fit for a given lambda
 #'
-#' @param obs_sim    list of observed similarity matrices. Each matrix correspondings to observed similarity at a time point
+#' @param obs_sim    list of observed similarity matrices. Each matrix corresponds to observed similarity at a time point
 #' @param lambda     temporal smoothness penalty weight
-#' @param d          embedding dimension
-#' @param maxit      max iterations
+#' @param d          embedding dimension, which is the dimension of the visualization space
+#' @param maxit      maximum number of iterations
 #' @param tol        convergence tolerance
-#' @param X_init     optional list of T initial embeddings
+#' @param X_init     optional. list of T initial embedding
+#' 
+#' @returns A list of six elements:
+#' \item{embeddings}{a list of T embeddings corresponding to position coordinates at each time point}
+#' \item{stress}{the final value of stress}
+#' \item{movement}{the final value of movement}
+#' \item{objective}{the final value of the objective function}
+#' \item{lambda}{the value of regularization parameter}
+#' \item{iter}{number of iterations needed to converge}
 
 dyn_mds <- function(obs_sim, lambda = 1, d = 2,
                     maxit = 500, tol = 1e-5, X_init = NULL) {
@@ -15,7 +23,7 @@ dyn_mds <- function(obs_sim, lambda = 1, d = 2,
   # similarity to dissimilarity
   Deltas <- lapply(obs_sim, function(C) as.matrix(corr_to_dist(C)))
   
-  # Initialise embeddings via classical MDS on time-averaged dissimilarity
+  # Initialize embedding via classical MDS on time-averaged dissimilarity
   if (is.null(X_init)) {
     Delta_mean <- Reduce("+", Deltas) / T
     cmd  <- cmdscale(as.dist(Delta_mean), k = d)

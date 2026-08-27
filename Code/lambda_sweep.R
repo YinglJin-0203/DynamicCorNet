@@ -4,6 +4,7 @@
 #' @param lambda     vector of values of penalization parameter to search
 #' @param d          embedding dimension
 #' 
+#' @returns a data frame with four columns: lambda (the search grid of regularization parameter), stress, movement and objective
 #' 
 lambda_sweep <- function(obs_sim, lambdas = 10^seq(-3, 3, by = 0.5), d = 2) {
   n_lambda <- length(lambdas)
