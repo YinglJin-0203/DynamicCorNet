@@ -160,6 +160,7 @@ ui <- fluidPage(
                             If the number of complete pairs is very small (i.e < 20),
                             the calculated measures are less realiable and will affect downstream analysis.
                             User may consider removing these time points from the dataset.
+                            When the number of complete pairs is less then five, the correlation is removed from visualization. 
                             Details of these time points can be examined in the previous subtab."
                            )
                          ))),
@@ -468,12 +469,14 @@ server <- function(input, output) {
       group_by(time) %>%
       summarize(cor = cor(.data[[input$select_var2[1]]], .data[[input$select_var2[2]]],
                           use = "pairwise.complete.obs", method = input$cor_type),
-                Npair = sum(complete.cases(.data[[input$select_var2[1]]], .data[[input$select_var2[2]]])/N))
+                Npair = sum(complete.cases(.data[[input$select_var2[1]]], .data[[input$select_var2[2]]]))) %>%
+      mutate(Npct = Npair/N)
     # display
     p2 <- df_cor %>%
       filter(complete.cases(.)) %>%
+      filter(Npair >= 5) %>%
       ggplot()+
-      geom_point(aes(x=time, y=cor, alpha = Npair), size = 3)+
+      geom_point(aes(x=time, y=cor, alpha = Npct), size = 3)+
       geom_line(aes(x=time, y=cor))+
       labs(title = "Empirical correlation", x = input$time_var, y = " ",
            alpha = "Proportion of complete pairs")+
