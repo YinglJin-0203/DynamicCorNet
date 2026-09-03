@@ -26,14 +26,14 @@ Pvec <- seq(5, 50, by = 5)
 pb <- txtProgressBar(0, length(Pvec), 0, style = 3)
 #comp_time_vec <- numeric(length(Pvec))
 
-P <- 15
+P <- 10
 for(k in seq_along(Pvec)){
   P <- Pvec[k]
   
   cat("=== Generating datasets ===\n")
   ds_smooth <- gen_smooth(p = P, T = nT)
   write_rds(ds_smooth, paste0("Simulation/Data/sim_smooth_p", P, "_T", nT, ".rds"))
-  write_rds(ds_smooth, paste0("ata/sim_smooth_p", P, "_T", nT, ".rds"))
+  # write_rds(ds_smooth, paste0("ata/sim_smooth_p", P, "_T", nT, ".rds"))
   # ds_noise  <- gen_high_noise()
   
   cat("\n=== Fit Dynamic MDS ===\n")

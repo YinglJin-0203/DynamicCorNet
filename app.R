@@ -110,7 +110,7 @@ ui <- fluidPage(
                                    h4("Summary statistics"),
                                    dataTableOutput("sum_tb"),
                                    h5(icon("circle-info"), 
-                                      "Measurement times with no more than 20 observations are marked out in red. 
+                                      "Measurement times with no more than 10 observations are marked out in red. 
                                       Correlation measure is sensitive to the proportion of missing values and can be unrealiable 
                                       if the propotion of missing value is large.")
                          )
@@ -374,7 +374,7 @@ server <- function(input, output) {
                 colnames = c(input$time_var, "Mean", "SD", "Min", "Max", "# of missing values")
                 ) %>%
         formatRound(columns = c("Mean", "SD", "Min", "Max"), digits = 2) %>%
-        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval(10, c(NA,"#ffe6e6")))
+        formatStyle("Nmiss", target = "row", backgroundColor = styleInterval((N-10), c(NA,"#ffe6e6")))
     } else {
       # subject summary
       sum_tb <- df_uni() %>% group_by(id) %>%

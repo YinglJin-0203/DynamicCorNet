@@ -1,216 +1,101 @@
-library(shiny)
-library(shinyWidgets)
-library(bslib)
-library(shinyBS)
-library(bsicons)
 library(here)
-library(DT)
 library(tidyverse)
 library(gridExtra)
-library(arsenal)
-library(htmltools)
 library(smacof)
 library(splines2)
 library(RColorBrewer)
-library(ggalluvial)
-library(ggdendro)
 library(mgcv)
 library(igraph)
 library(magick)
+
+source("Code/dyn_mds.R")
+source("Code/lambda_sweep.R")
+source("Code/dMDS_Helpers.R")
+source("Code/get_similarity.R")
+source("Code/lcurve_corner_dist.R")
+source("Code/lcurve_corner_menger.R")
+
 
 theme_set(theme_minimal())
 
 set.seed(825)
 
-source(here("Code/Stress.R"))
+#### descriptives #####
 
-#### Dynamic MDS with euclidean distance ####
+df <- read.csv("SampleData/IFEDDemoData.csv")
+df <- df%>% rename(id=ID, time= Week)
+df <- df %>% group_by(time) %>% group_modify(~clean_sparse_columns(.x, min_obs = 10))
 
-# df_org <- read.csv("Data/IFEDDemoData.csv")
-df <- df_org %>% select(-ID, -Length, -Weight.for.age, -Height.for.age, 
-                    -Weight.for.height, -Length, -Bud.bead.diameter,
-                    -Age.at.exam) %>% 
-  rename(time=Week)
+obs_cors <- df %>%
+  group_by(time) %>%
+  group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = "spearman")})
+t_uniq <- sort(unique(df$time))
 
-source(here("Code/DynDissmMat.R"))
-source(here("Code/Helpers/DynMDSHelpers.R"))
-source(here("Code/DynamicMDS.R"))
-
-# dissmilarity matrix
-dist_mats <- DynDissimMat(df, method = "euclidean")
-sum(sapply(dist_mats, function(x)(dim(x)[1]^2)))
-dist_vec <- unlist(dist_mats)
-
-# coordinates
-system.time({
-  coords <- DynamicMDS(dist_mats, 5)
-})
-
-# graph
-tuniq <- sort(unique(df$time))
-fig_list <- list()
-
-for(t in seq_along(tuniq)){
-  
-  Pt <- dim(dist_mats[[t]])[1]
-  graph_t <- make_empty_graph(n = Pt, directed = FALSE)
-  V(graph_t)$label <- colnames(dist_mats[[t]])
-  coord_t <- coords[[t]]
-  
-  # plot dynamic
-  # pic1 <- paste0("images/CaseStudy/DynMDS_edist_week", tuniq[t], ".jpeg")
-  pic1 <- paste0("images/CaseStudy/DynMDS_euclidean_week", tuniq[t], ".jpeg")
-  jpeg(filename = pic1, height = 500, width = 500)
-  plot(graph_t,
-       layout = as.matrix(coord_t),
-       # vertex.frame.color=ifelse(is.na(V(graph_t)$color), "grey", NA),
-       vertex.frame.color=NA,
-       vertex.label.cex=1,
-       vertex.size = 20, 
-       # vertex.color = V(graph_t)$color, 
-       margin = 0, main = paste0("Dynamic, Euclidean, week ", tuniq[t]))
-  dev.off()
-  fig_list[[t]] <- image_read(pic1)
-  
+# LOCF
+filled_obs_cor <- obs_cors
+filled_obs_cor[[1]][is.na(filled_obs_cor[[1]])] <- 1e-5
+for (i in 2:length(filled_obs_cor)) {
+    na_mask <- is.na(filled_obs_cor[[i]])
+    filled_obs_cor[[i]][na_mask] <- filled_obs_cor[[i - 1]][na_mask]
 }
+filled_obs_cor
 
-# save graphs
-DynMDS_educlidean_all <- image_animate(image_join(fig_list), fps = 1)
-# DynMDS_edist_noultra <- image_animate(image_join(fig_list[c(1, 2, 4, 6, 8, 12)]), fps = 1)
-# DynMDS_edist_ultra <- image_animate(image_join(fig_list[c(3, 5, 7, 9:11)]), fps = 1)
+# grid search
+lambdas <- seq(0, 10, length.out = 100) # lambda search grid
+sweep_smooth <- lambda_sweep(filled_obs_cor, lambdas)
+maxdist_lam <- lcurve_corner_dist(sweep_smooth)
 
-image_write(DynMDS_educlidean_all, path = "images/CaseStudy/DynMDS_euclidean_all.gif")
-# image_write(DynMDS_edist_noultra, path = "images/CaseStudy/DynMDS_edist_noultra.gif")
-# image_write(DynMDS_edist_ultra, path = "images/CaseStudy/DynMDS_edist_ultra.gif")
+# layout
+dmds_fit <- dyn_mds(obs_sim = filled_obs_cor, lambda = maxdist_lam$lambda_star, d = 2)  
 
+# t_uniq <- c(1, 4, 16, 24)
 
-#### Splines MDS ####
-
-# df_org <- read.csv("Data/IFEDDemoData.csv")
-df <- df_org %>% select(-ID, -Week) %>% 
-  rename(time=Age.at.exam)
-
-tuniq <- sort(unique(df$time))
-
-source(here("Code/SplDissmMat.R"))
-source(here("Code/Helpers/SplMDSHelpers.R"))
-source(here("Code/SplinesMDS.R"))
-
-# dissmilarity matrix
-dist_mats <- SplDissimMat(df, method = "spearman")
-View(dist_mats[[1]])
-diss_t <- dist_mats[[1]]
-adj_t <- 1-diss_t
-adj_t[adj_t <= 1] <- 0
-adj_t[is.na(adj_t)] <- 0
-net_t <- graph_from_adjacency_matrix(adj_t, weighted = T, 
-                                     mode = "undirected", 
-                                     diag = FALSE)
-E(net_t)$width = 10*E(net_t)$weight
-plot(net_t)
-warnings()
-dim(dist_mats[[1]])
-class(dist_mats[0==tuniq])
-
-df %>% filter(time==10) %>%
-  select(!time) %>%
-  select(where(~!all(is.na(.)))) %>% colnames()
-
-# coordinates
-system.time({
-  coords <- SplinesMDS(dist_mats, lambda = 7, P = ncol(df)-1, tvec = tuniq)
-})
-
-xdim(coords$init_coord)
-coords$xi1
-coords$xi2
-dim(coords$Xmat)
-save(coords, file = "CaseStudy/Splcoords_euclidean.RData")
-
-# graph
-load("CaseStudy/Splcoords.RData")
-## coeeficients
-# all nodes on the graph
-nodes_t <- colnames(df %>% select(!time))
-# non-empty variables
-vars_t <- colnames(df %>% filter(time==5) %>%
-                     select(!time) %>%
-                     select(where(~!all(is.na(.)))))
-# graph 
-net_t <- make_empty_graph(n = length(nodes_t), directed = FALSE)
-plot(net_t)
-V(net_t)$name <- nodes_t
-V(net_t)$color <- ifelse(V(net_t)$name %in% vars_t, 1, 2)
-
-coord_t <- cbind(init_coords[, 1] + xi1 %*% Xmat[tid[t],],
-                 init_coords[, 2] + xi2 %*% Xmat[tid[t],])
-
-seq(min(tuniq), max(tuniq), by = min(diff(tuniq)))
-init_coords[, 1] + xi1 %*% t(Xmat[1,])
-dim(Xmat[1,])
-  # c1 <- init_coord[,1] + xi1 %*% t(Xmat)
-  # c2 <- init_coord[,2] + xi2 %*% t(Xmat)
-  # coords <- lapply(tid, function(x){return(data.frame(c1 = c1[ , x], 
-  #                                                     c2 = c2[ , x]))})
-
-tuniq <- sort(unique(df$time))
-tmin <- min(tuniq)
-tmax <- max(tuniq)
-tid <- tmin:tmax
-fig_list <- list()
-varnames <- colnames(df %>% select(-time))
-P <- 12
-K <- ncol(xi1)
-Xmat <- bSpline(tmin:tmax, 
-                df = K,
-                degree = 2, derivs = 0)
-
-
-# find the median of days at each week
-tid <- df_org %>% select(Week, Age.at.exam) %>% 
-  group_by(Week) %>%
-  summarise_at("Age.at.exam", median) %>% select(Age.at.exam) %>% unlist()
-
-for(t in 1:length(tid)){
+par(mfrow=c(4, 3), mar = c(0, 0, 2, 0), oma = c(1, 1, 1, 1))
+for(i in seq_along(t_uniq)){
   
-  # number of non-missing variables
-  graph_t <- make_empty_graph(n = P, directed = FALSE)
-  V(graph_t)$label <- varnames
-  # coord_t <- cbind(init_coords[, 1] + xi1 %*% Xmat[t,],
-  #                  init_coords[, 2] + xi2 %*% Xmat[t,]
-  #                  )
-  coord_t <- cbind(init_coords[, 1] + xi1 %*% Xmat[tid[t],],
-                   init_coords[, 2] + xi2 %*% Xmat[tid[t],]
-  )
-  rownames(coord_t) <- varnames
+  layout_i <- dmds_fit$embeddings[[i]]
+  cor_i <- obs_cors[[i]]
+  df_i <- df[df$time == t_uniq[i], ]
   
-  if(tid[t] %in% tuniq){
-    NAcols <- df %>% filter(time == tid[t]) %>% select(-time) %>%
-      select(where(~ all(is.na(.)))) %>% colnames()
-    frame_color <- ifelse(V(graph_t)$label %in% NAcols, "grey", NA)
-    fille_color <- ifelse(V(graph_t)$label %in% NAcols, NA, "grey")
-
+  # edges — exclude NAs before filtering by threshold
+  edges <- which(abs(cor_i) > 0.5 & upper.tri(cor_i) & !is.na(cor_i), arr.ind = T)
+  from <- rownames(cor_i)[edges[, 1]]
+  to   <- colnames(cor_i)[edges[, 2]]
+  wt   <- cor_i[edges]
+  
+  # build edge data frame — empty data frame if no edges
+  edge_df <- if (length(wt) > 0) {
+    data.frame(from = from, to = to, weight = wt)
   } else {
-    frame_color <- "grey"
-    fille_color <- NA
+    data.frame(from = character(0), to = character(0), weight = numeric(0))
   }
-    
-  # plot dynamic
-  pic1 <- paste0("images/CaseStudy/SplMDS_edist_day", tid[t], ".jpeg")
-  # pic1 <- paste0("images/CaseStudy/temp.jpeg")
-  jpeg(filename = pic1, height = 500, width = 500)
-  plot(graph_t,
-       layout = coord_t,
-       vertex.frame.color=frame_color,
-       vertex.color=fille_color,
-       vertex.label.cex=1,
-       vertex.size = 20, 
-       # vertex.color = V(graph_t)$color, 
-       margin = 0, main = paste0("Splines, day ", tid[t]))
-  dev.off()
-  fig_list[[t]] <- image_read(pic1)
+      
+  # initialize
+  net_i <- igraph::graph_from_data_frame(
+    d        = edge_df,
+    directed = F,
+    vertices = data.frame(name = rownames(cor_i))
+  )
+      
+  # visual elements of edges
+  E(net_i)$width <- abs(E(net_i)$weight) * 8
+  E(net_i)$color <- ifelse(E(net_i)$weight > 0, "steelblue", "tomato")
+  
+  # visual elements of vertices
+  miss_var_id <- sapply(df_i[, rownames(cor_i)], function(x) all(is.na(x)))
+  V(net_i)$color       <- ifelse(miss_var_id, NA, "lightgrey")
+  V(net_i)$frame.color <- "lightgrey"
+  
+  plot(net_i, layout = layout_i,
+       vertex.size        = 20,
+       vertex.label.cex   = 1,
+       vertex.color       = V(net_i)$color,
+       vertex.frame.color = V(net_i)$frame.color,
+       edge.curved        = 0.2,
+       main = paste0("t = ", t_uniq[[i]]), 
+       margin = 0)
   
 }
 
-spl_edist_all <- image_animate(image_join(fig_list), fps = 1)
-image_write(spl_edist_all, path = "images/CaseStudy/SplMDS_edist_all.gif")
+ 
+dev.off()

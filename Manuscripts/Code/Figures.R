@@ -9,6 +9,14 @@
 #     kappa(x) = |f''(x)| / (1 + f'(x)^2)^(3/2)
 # ------------------------------------------------------------
 
+
+rm(list=ls())
+
+#### Set up  ####
+source("Simulation/Code/SimHelpers.r")
+source("Simulation/Code/SimData.R")
+source("Simulation/Code/SimFit.R")
+
 library(ggplot2)
 theme_set(theme_minimal())
 
@@ -22,7 +30,7 @@ f2 <- function(x) k * exp(k * x) / (1 + exp(k * x))^2 # second derivative f''(x)
 
 kappa <- function(x) abs(f2(x)) / (1 + f1(x)^2)^1.5   # curvature formula
 
-# --- Find x that maximizes curvature ---------------------------
+#  Find x that maximizes curvature 
 opt <- optimize(kappa, interval = c(-10, 10), maximum = TRUE)
 x_star <- opt$maximum
 k_star <- opt$objective
@@ -31,11 +39,11 @@ cat("Maximum curvature at x =", round(x_star, 4),
     " with kappa =", round(k_star, 4), "\n")
 cat("f(x*) =", round(f(x_star), 4), "\n")
 
-# --- Build data frame for plotting ------------------------------
+# Build data frame for plotting 
 x <- seq(-5, 5, length.out = 1000)
 df <- data.frame(x = x, y = f(x), kap = kappa(x))
 
-# --- Top panel: the L-shaped function ---------------------------
+# Top panel: the L-shaped function 
 pdf("Manuscripts/Figures/example_lcurve.pdf", height = 4, width = 4)
 ggplot(df, aes(x, y)) +
   geom_line(linewidth = 1.2) +
@@ -51,11 +59,12 @@ ggplot(df, aes(x, y)) +
   annotate("text", x = 3.5, y = f(3.5) + 0.15,
            label = "Unfair trade-off",
            color = "Steelblue", hjust = 0.5, size = 3.2) +
-  labs(title = " ", x = "Regularization", y = "Goodness of fit") +
+  labs(title = " ", x = "Regularization", y = "Stress") +
   theme(axis.text = element_blank())
 dev.off()
 
 #### Example from simulation ####
+library(tidyverse)
 
 output_i <- read_rds("Simulation/Output/out_smooth_p10_T10.rds")
 
@@ -67,7 +76,7 @@ best_lam <- c(
 output_i <- output_i %>%
   mutate_at(2:4, log)
 
-# --- KEY CHANGE: rescale movement and stress to [0, 1] -------------
+# KEY CHANGE: rescale movement and stress to [0, 1]
 # so that both axes are on the same numerical scale, and a
 # perpendicular line computed via dot-product projection will
 # actually render as perpendicular under default (non-fixed) coords
@@ -128,5 +137,9 @@ output_i %>%
   # force equal visual scaling on both axes so the right angle
   # is actually rendered as a right angle
   coord_fixed(ratio = 1)+
-  labs(x = "Movement (normalized)", y = "Stress (normalized)")
+  labs(x = "Regularization (normalized)", y = "Stress (normalized)")
 dev.off()
+
+#### IFED network plot ####
+
+
