@@ -20,6 +20,12 @@ theme_set(theme_minimal())
 
 set.seed(825)
 
+#### data cleanr #####
+df <- read.csv("SampleData/IFEDDemoData.csv")
+df$id <- as.factor(df$ID)
+write.csv(df, "SampleData/IFEDDemoData.csv")
+
+
 #### descriptives #####
 
 df <- read.csv("SampleData/IFEDDemoData.csv")
@@ -27,6 +33,7 @@ df <- df%>% rename(id=ID, time= Week)
 df <- df %>% group_by(time) %>% group_modify(~clean_sparse_columns(.x, min_obs = 10))
 
 obs_cors <- df %>%
+  select(-id) %>%
   group_by(time) %>%
   group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = "spearman")})
 t_uniq <- sort(unique(df$time))
@@ -48,10 +55,13 @@ maxdist_lam <- lcurve_corner_dist(sweep_smooth)
 # layout
 dmds_fit <- dyn_mds(obs_sim = filled_obs_cor, lambda = maxdist_lam$lambda_star, d = 2)  
 
-# t_uniq <- c(1, 4, 16, 24)
+t_uniq <- c(4, 16, 24, 32)
+t_uniq4 <- c(3, 7, 9, 11)
+t_uniq
+# i <- 10
 
-par(mfrow=c(4, 3), mar = c(0, 0, 2, 0), oma = c(1, 1, 1, 1))
-for(i in seq_along(t_uniq)){
+par(mfrow=c(2, 2), mar = c(0, 0, 3, 0))
+for(i in t_uniq4){
   
   layout_i <- dmds_fit$embeddings[[i]]
   cor_i <- obs_cors[[i]]
@@ -92,7 +102,7 @@ for(i in seq_along(t_uniq)){
        vertex.color       = V(net_i)$color,
        vertex.frame.color = V(net_i)$frame.color,
        edge.curved        = 0.2,
-       main = paste0("t = ", t_uniq[[i]]), 
+       main = paste0("Week ", t_uniq[[i]]), 
        margin = 0)
   
 }
