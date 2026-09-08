@@ -22,8 +22,10 @@ set.seed(825)
 
 #### data cleanr #####
 df <- read.csv("SampleData/IFEDDemoData.csv")
-df$id <- as.factor(df$ID)
-write.csv(df, "SampleData/IFEDDemoData.csv")
+df$ID <- as.factor(df$ID)
+df <- df %>% select(-X)
+df <- df %>% select(-id)
+write.csv(df, "SampleData/IFEDDemoData.csv", row.names = F)
 
 
 #### descriptives #####

@@ -90,7 +90,7 @@ ui <- fluidPage(
                            sidebarPanel(
                            uiOutput("varnames1"),
                            # summarize type
-                           selectInput("sum_type", "Summarize by", choices = c("Time", "Trajectory"), 
+                           selectInput("sum_type", "Summarize by", choices = c("Time", "Individual"), 
                                        selected = "Time", multiple = FALSE),
                            width = 3),
   
@@ -110,9 +110,13 @@ ui <- fluidPage(
                                    h4("Summary statistics"),
                                    dataTableOutput("sum_tb"),
                                    h5(icon("circle-info"), 
-                                      "Measurement times with no more than 10 observations are marked out in red. 
-                                      Correlation measure is sensitive to the proportion of missing values and can be unrealiable 
-                                      if the propotion of missing value is large.")
+                                      HTML(
+                                      "<ul>
+                                      <li>Correlation measure is sensitive to the proportion of missing values and can be unrealiable 
+                                      if the propotion of missing value is large</li>
+                                      <li>When summaryzing by time, time points with no more than 10 observations are highlighted in red</li> 
+                                      <li>When summaryzing by individual, individuals with no more than 3 observations are highlighted in red</li> 
+                                      </ul>"))
                          )
               )),
               
@@ -157,10 +161,10 @@ ui <- fluidPage(
                            ),
                            h5(icon("circle-info"), 
                            "Correlation measures are very sensitive to sample size.
-                            If the number of complete pairs is very small (i.e < 20),
+                            If the number of complete pairs is very small (i.e < 10),
                             the calculated measures are less realiable and will affect downstream analysis.
                             User may consider removing these time points from the dataset.
-                            When the number of complete pairs is less then five, the correlation is removed from visualization. 
+                            When the number of complete pairs is less then 10, the correlation is removed from visualization. 
                             Details of these time points can be examined in the previous subtab."
                            )
                          ))),
@@ -184,7 +188,7 @@ ui <- fluidPage(
                              plotOutput("heatmap", height = "400px", width = "600px"),
                              h5(icon("info-circle"),
                                 "Correlation measures are very sensitive to sample size. 
-                                If the number of complete pairs is very small (i.e < 20), 
+                                If the number of complete pairs is very small (i.e < 10), 
                                 the calculated measures are less realiable and will affect downstream analysis.
                                 User may consider removing these time points from the dataset.
                                 Details of these time points can be examined in the previous subtabs. 
@@ -474,7 +478,7 @@ server <- function(input, output) {
     # display
     p2 <- df_cor %>%
       filter(complete.cases(.)) %>%
-      filter(Npair >= 5) %>%
+      filter(Npair >= 10) %>%
       ggplot()+
       geom_point(aes(x=time, y=cor, alpha = Npct), size = 3)+
       geom_line(aes(x=time, y=cor))+
