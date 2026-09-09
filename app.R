@@ -211,7 +211,9 @@ ui <- fluidPage(
                #   em("Strong association is indicated by large absolute values of correlation, or small values of euclidean distance.")
                # ),
                br(),
-               uiOutput("lambda"),
+               radioButtons("lambda", label = "Stability constraint",
+                           choices = c("None", "Mild", "Heavy"),
+                           selected = "Mild"),
                br(),
                uiOutput("thres_m"), # show edge or not
                br(),
@@ -252,7 +254,7 @@ ui <- fluidPage(
              
              mainPanel(
                h3("Integrated network of correlation"),
-               plotOutput("int_net"),
+               plotOutput("int_net", height = "500px"),
                dataTableOutput("test")
              )
            ))
@@ -626,36 +628,50 @@ server <- function(input, output) {
   })
 
   ## lambda options
-  output$lambda<- renderUI({
-    req(grid_search())
-      # menger curvature
-      menger_lam <- lcurve_corner_menger(grid_search(), plot = FALSE)
-      ## max distance
-      maxdist_lam <- lcurve_corner_dist(grid_search())
+  # output$lambda<- renderUI({
+  #   req(grid_search())
+  #     # menger curvature
+  #     menger_lam <- lcurve_corner_menger(grid_search(), plot = FALSE)
+  #     ## max distance
+  #     maxdist_lam <- lcurve_corner_dist(grid_search())
+  #     radioButtons("lambda", label = "Stability constraint",
+  #                 choices = c("None" = 0,
+  #                             "Mild" = maxdist_lam$lambda_star,
+  #                             "Heavy" = menger_lam$lambda_star),
+  #                 selected = maxdist_lam$lambda_star)
       # scroll bar with modified end labels
-      tagList(
-        tags$style(HTML("
-          .irs-grid { display: none; }
-          .irs-min  { display: none; }
-          .irs-max  { display: none; }
-          .irs-single { display: none; }  /* hides the moving label */
-        ")),
-        div(
-          style = "position: relative;",
-          sliderInput("lambda", label = "Preference",
-                      min = maxdist_lam$lambda_star, max = menger_lam$lambda_star,
-                      value = maxdist_lam$lambda_star, ticks = FALSE),
-          div(style = "display: flex; justify-content: space-between; margin-top: -15px; padding: 0 10px;",
-              span("Accuracy"),   # left label
-              span("Stability")    # right label
-          ))
-      )
-  })
+      # tagList(
+      #   tags$style(HTML("
+      #     .irs-grid { display: none; }
+      #     .irs-min  { display: none; }
+      #     .irs-max  { display: none; }
+      #     .irs-single { display: none; }  /* hides the moving label */
+      #   ")),
+      # div(
+      #   style = "position: relative;",
+      #   sliderInput("lambda", label = "Preference",
+      #               min = maxdist_lam$lambda_star, max = menger_lam$lambda_star,
+      #               value = maxdist_lam$lambda_star, ticks = FALSE),
+      #   div(style = "display: flex; justify-content: space-between; margin-top: -15px; padding: 0 10px;",
+      #       span("Accuracy"),   # left label
+      #       span("Stability")    # right label
+      #   ))
+      # )
+  # })
 
   # refit at best lambda
   layout <- reactive({
-    req(input$lambda, filled_obs_cor())
-    dmds_fit <- dyn_mds(obs_sim = filled_obs_cor(), lambda = input$lambda, d = 2)
+    req(grid_search(), input$lambda, filled_obs_cor())
+    # options for lambda
+    # menger curvature
+    menger_lam <- lcurve_corner_menger(grid_search(), plot = FALSE)
+    ## max distance
+    maxdist_lam <- lcurve_corner_dist(grid_search())
+    lam_options <- sort(c(0, maxdist_lam$lambda_star, menger_lam$lambda_star))
+    ui_options <- c("None", "Mild", "Heavy")
+    lam_star <- lam_options[which(ui_options == input$lambda)]
+    # fit model
+    dmds_fit <- dyn_mds(obs_sim = filled_obs_cor(), lambda = lam_star, d = 2)
     dmds_fit$embeddings
   })
 
@@ -729,14 +745,14 @@ server <- function(input, output) {
         }
   })
 
-  output$vis_info <- renderPrint({
-    req(input$lambda)
-    msg <- paste0("Regularization parameter: ", round(input$lambda, 2))
-    tagList(
-      icon("info-circle"),
-      em(msg)
-    )
-  })
+  # output$vis_info <- renderPrint({
+  #   req(input$lambda)
+  #   msg <- paste0("Regularization parameter: ", round(input$lambda, 2))
+  #   tagList(
+  #     icon("info-circle"),
+  #     em(msg)
+  #   )
+  # })
 
 
   # tab 4: integrated correlation and grouping results

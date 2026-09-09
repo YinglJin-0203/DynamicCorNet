@@ -23,8 +23,8 @@ set.seed(825)
 #### data cleanr #####
 df <- read.csv("SampleData/IFEDDemoData.csv")
 df$ID <- as.factor(df$ID)
-df <- df %>% select(-X)
-df <- df %>% select(-id)
+# df <- df %>% select(-X)
+# df <- df %>% select(-id)
 write.csv(df, "SampleData/IFEDDemoData.csv", row.names = F)
 
 
@@ -62,7 +62,7 @@ t_uniq4 <- c(3, 7, 9, 11)
 t_uniq
 # i <- 10
 
-par(mfrow=c(2, 2), mar = c(0, 0, 3, 0))
+par(mfrow=c(1, 4), mar = c(0, 6, 3, 6))
 for(i in t_uniq4){
   
   layout_i <- dmds_fit$embeddings[[i]]
@@ -104,8 +104,9 @@ for(i in t_uniq4){
        vertex.color       = V(net_i)$color,
        vertex.frame.color = V(net_i)$frame.color,
        edge.curved        = 0.2,
-       main = paste0("Week ", t_uniq[[i]]), 
-       margin = 0)
+       margin = c(0, 0, 0, 0),
+       main = paste0("Week ", t_uniq[[i]]))
+  # title(paste0("Week ", t_uniq[[i]]), line = 1) 
   
 }
 

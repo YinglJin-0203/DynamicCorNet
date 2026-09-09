@@ -111,7 +111,7 @@ lcurve_corner_menger <- function(sweep_df, log_scale = TRUE, plot = TRUE) {
   list(
     lambda_star = lambda_star,
     idx         = idx,
-    kappa_M     = kappa_M,
+    kappa_M     = kappa_M
     # h           = h_vec,
     # R           = R_vec
   )
