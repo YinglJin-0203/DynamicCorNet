@@ -57,13 +57,13 @@ maxdist_lam <- lcurve_corner_dist(sweep_smooth)
 # layout
 dmds_fit <- dyn_mds(obs_sim = filled_obs_cor, lambda = maxdist_lam$lambda_star, d = 2)  
 
-t_uniq <- c(4, 16, 24, 32)
-t_uniq4 <- c(3, 7, 9, 11)
-t_uniq
+# t_uniq <- c(4, 16, 24, 32)
+# t_uniq4 <- c(3, 7, 9, 11)
+# t_uniq
 # i <- 10
 
-par(mfrow=c(1, 4), mar = c(0, 6, 3, 6))
-for(i in t_uniq4){
+par(mfrow=c(4, 3), mar = c(2, 0, 4, 0))
+for(i in seq_along(t_uniq)){
   
   layout_i <- dmds_fit$embeddings[[i]]
   cor_i <- obs_cors[[i]]
@@ -112,3 +112,17 @@ for(i in t_uniq4){
 
  
 dev.off()
+
+
+#### Descriptives ####
+
+df %>% 
+  pivot_longer(3:14) %>%
+  filter(!is.na(value)) %>%
+  ggplot() +
+  geom_line(aes(x=time, y=value, group = id), linewidth = 0.5, na.rm = T, alpha = 0.5) + 
+  geom_smooth(aes(x=time, y=value), na.rm = T)+
+  facet_wrap(~name, scales = "free", strip.position = "left")+
+  labs(x="Week", y= " ")
+ggsave("")  
+
