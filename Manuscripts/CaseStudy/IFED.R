@@ -1,3 +1,6 @@
+
+##### Set up ####
+
 library(here)
 library(tidyverse)
 library(gridExtra)
@@ -7,6 +10,7 @@ library(RColorBrewer)
 library(mgcv)
 library(igraph)
 library(magick)
+library(ggforce)
 
 source("Code/dyn_mds.R")
 source("Code/lambda_sweep.R")
@@ -114,8 +118,9 @@ for(i in seq_along(t_uniq)){
 dev.off()
 
 
-#### Descriptives ####
+##### Descriptives #####
 
+# trajectories
 df %>% 
   pivot_longer(3:14) %>%
   filter(!is.na(value)) %>%
@@ -125,4 +130,64 @@ df %>%
   facet_wrap(~name, scales = "free", strip.position = "left")+
   labs(x="Week", y= " ")
 ggsave("")  
+
+##### correlation #####
+
+# assume df has columns: time, id, and variable columns
+# compute pairwise correlations at each time point
+vars <- setdiff(colnames(df), c("Week", "ID"))
+
+# get all unique pairs
+pairs <- combn(vars, 2, simplify = FALSE)
+N <- length(unique(df$ID))
+
+# compute correlation for each pair at each time point
+cor_df <- map_dfr(pairs, function(pair) {
+  df %>%
+    group_by(Week) %>%
+    summarise(
+      correlation = cor(.data[[pair[1]]], .data[[pair[2]]],
+                        use = "pairwise.complete.obs", 
+                        method = "spearman"),
+      group = paste(pair[1], "vs", pair[2]),
+      var1 = pair[1],
+      var2 = pair[2],
+      Npair = sum(complete.cases(.data[[pair[1]]], .data[[pair[2]]])),
+      .groups = "drop"
+    ) %>%  mutate(Npct = Npair/N)
+})
+
+# plot each pair separately onto two pages
+n_pairs <- length(unique(cor_df$group))
+plots_per_page <- ceiling(n_pairs / 2)  # split evenly across 2 pages
+
+# page 1
+p1 <- cor_df %>%
+  mutate(group = str_wrap(group, width = 20)) %>%
+  filter(!is.na(correlation)) %>%
+  filter(Npair >= 10) %>%
+  arrange(var1, var2) %>% 
+  ggplot() +
+  geom_point(aes(x=Week, y=correlation, alpha = Npct)) +
+  geom_line(aes(x=Week, y=correlation)) +
+  facet_wrap_paginate(~ group, ncol = 5, nrow = 7, page = 1) +  # adjust nrow/ncol as needed
+  labs(x = "Week", y = "",  alpha = "Proportion of complete pairs")+
+  theme(legend.position = "bottom")
+
+# page 2
+p2 <- p1 + facet_wrap_paginate(~ group, ncol =  5, nrow = 7, page = 2)
+p2
+
+p1
+
+cor_df %>%
+  filter(!is.na(correlation)) %>%
+  filter(Npair >= 10) %>%
+  arrange(var1, var2) %>% 
+  group_by(group) %>%
+  ggplot() + 
+  geom_point(aes(x=Week, y=correlation, alpha = Npct))+
+  geom_line(aes(x=Week, y=correlation))+
+  facet_wrap(~group, ncol = 4, nrow = 17)
+
 
