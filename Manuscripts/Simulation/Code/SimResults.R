@@ -6,8 +6,9 @@ library(here)
 library(igraph)
 theme_set(theme_minimal())
 
-source("Simulation/Code/SimHelpers.r")
-source("Simulation/Code/SimFit.R")
+source("Manuscripts/Simulation/Code/SimHelpers.r")
+source("Manuscripts/Simulation/Code/SimFit.R")
+
 
 #### Data ####
 
@@ -29,7 +30,7 @@ dev.off()
 
 # compare best lambda selectiong methods?
 
-file_names <- list.files("Simulation/Output")[-1]
+file_names <- list.files("Manuscripts/Simulation/Output")[-1]
 
 best_lam_df <- list()
 
@@ -40,7 +41,7 @@ for(i in seq_along(file_names)){
   Pi <- as.numeric(str_extract(file_names[i], "(?<=p)\\d+"))
   Ti <- as.numeric(str_extract(file_names[i], "(?<=T)\\d+"))
   
-  output_i <- read_rds(paste0("Simulation/Output/", file_names[i]))
+  output_i <- read_rds(paste0("Manuscripts/Simulation/Output/", file_names[i]))
   
   # best lambda
   # stress0 <- output_i$stress[output_i$lambda==0]
@@ -101,16 +102,18 @@ for(i in seq_along(file_names)){
                nudge_y = 0.05,   # shift label up; adjust as needed
                nudge_x = 0.1,   # shift label right; adjust as needed
                color   = "red",
-               size    = 3)+
-    # 1. straight line from first to last point
-    annotate("segment",
-             x = x1, y = y1, xend = x2, yend = y2,
-             color = "blue", linetype = "dashed") +
-    
-    # 2. perpendicular line from max dist point to the blue line
-    annotate("segment",
-             x = xm, y = ym, xend = xf, yend = yf,
-             color = "darkgreen", linetype = "dotted")
+               size    = 1.5)+
+    labs(title = paste0("P = ", Pi, ", T = ", Ti), x = "Regulation", y = "Stress")+
+    theme(title = element_text(size = 5))
+    # # 1. straight line from first to last point
+    # annotate("segment",
+    #          x = x1, y = y1, xend = x2, yend = y2,
+    #          color = "blue", linetype = "dashed") +
+    # 
+    # # 2. perpendicular line from max dist point to the blue line
+    # annotate("segment",
+    #          x = xm, y = ym, xend = xf, yend = yf,
+    #          color = "darkgreen", linetype = "dotted")
     
 
   
@@ -125,9 +128,25 @@ bind_rows(best_lam_df) %>%
 dev.off()
 
 png("Simulation/SimulationFigs/stress_move_lambda_random.png", height=500, width = 900)
-do.call(ggpubr::ggarrange, c(plotlist = plot_list[sample(length(plot_list), 4)], 
-                             nrow = 2, ncol=2, common.legend=T))
-dev.off()
+
+# plot separately
+# 1-24
+do.call(ggpubr::ggarrange, c(plotlist = plot_list[1:24], 
+                             nrow = 6, ncol=4, common.legend=T))
+# 25-48
+do.call(ggpubr::ggarrange, c(plotlist = plot_list[25:48], 
+                             nrow = 6, ncol=4, common.legend=T))
+# 49-72
+do.call(ggpubr::ggarrange, c(plotlist = plot_list[49:72], 
+                             nrow = 6, ncol=4, common.legend=T))
+
+# 73-96
+do.call(ggpubr::ggarrange, c(plotlist = plot_list[73:96], 
+                             nrow = 6, ncol=4, common.legend=T))
+
+# 97-100
+do.call(ggpubr::ggarrange, c(plotlist = plot_list[97:100], 
+                             nrow = 6, ncol=4, common.legend=T))
 
 plot_list[[2]]
 
@@ -219,10 +238,14 @@ plot(exp_output$movement, exp_output$stress)
 points(log(exp_output2$movement), log(exp_output2$stress), col="red")
 
 #### Computation time ####
-comp_time <- read.csv("Simulation/Output/comp_time.csv")
+comp_time <- read.csv("Manuscripts/Simulation/Output/comp_time.csv")
+unique(comp_time$P)
+unique(comp_time$T)
 
 range(comp_time$comp_time) # 8 second to 2 minutes
 head(comp_time)
 ggplot(comp_time, aes(x=T, y=comp_time, col=P, group = P))+
   geom_point()+
-  geom_line()
+  geom_line()+
+  labs(x="Number of time points", y = "Time (seconds)", col = "Number of variables")+
+  theme(legend.position = "bottom")
