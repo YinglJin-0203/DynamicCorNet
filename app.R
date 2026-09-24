@@ -75,7 +75,7 @@ ui <- fluidPage(
                        br(), 
                        h4("Sample summary"), 
                        dataTableOutput("size_info", width = "600px")
-                       ),
+                       )
     
            )
            ),
@@ -92,11 +92,12 @@ ui <- fluidPage(
                            # summarize type
                            selectInput("sum_type", "Summarize by", choices = c("Time", "Individual"), 
                                        selected = "Time", multiple = FALSE),
+                           uiOutput("tab1_note"),
                            width = 3),
   
                          # main panel
                          mainPanel(# summary for selected variable
-                                   h3('Single variable summary'),
+                                   # h3('Single variable summary'),
                                    fluidRow(
                                      column(width = 6,
                                             h4("Summary plot"),
@@ -108,15 +109,7 @@ ui <- fluidPage(
                                             )
                                    ),
                                    h4("Summary statistics"),
-                                   dataTableOutput("sum_tb"),
-                                   h5(icon("circle-info"), 
-                                      HTML(
-                                      "<ul>
-                                      <li>Correlation measure is sensitive to the proportion of missing values and can be unrealiable 
-                                      if the propotion of missing value is large</li>
-                                      <li>When summaryzing by time, time points with no more than 10 observations are highlighted in red</li> 
-                                      <li>When summaryzing by individual, individuals with no more than 3 observations are highlighted in red</li> 
-                                      </ul>"))
+                                   dataTableOutput("sum_tb")
                          )
               )),
               
@@ -133,11 +126,12 @@ ui <- fluidPage(
                                       choices = list("pearson", "spearman")),
                           tagList(
                             icon("info-circle"),
-                            em("Correlation measures may be unrealiable when the proportion of missing is large!")
+                            em("Correlation measures may be unrealiable when the proportion of missing is large! 
+                            When the number of complete pairs is less then 10, the correlation is removed from visualization. 
+                            Details of these time points can be examined in the previous subtab.")
                             ),
                           # variable list
                           br(),br(),
-                          uiOutput("varnames2"),
                           # scale
                           checkboxInput("scaleY", "Scale correlation axis to data?", value = F),
                           tagList(
@@ -146,26 +140,22 @@ ui <- fluidPage(
                                \n
                                Unscaled axis's range is fixed to [-1, 1], which is better for observing the magnitude of correlation.  ")
                           ),
+                          br(), br(),
+                          uiOutput("varnames2"),
                           width = 3),
                        
                        # main panel
                          mainPanel(
-                           h3("Comparision of distribution, temporal trend and empirical correlation"),
+                           # h3("Comparision of distribution, temporal trend and empirical correlation"),
                            fluidRow(
                              column(width = 6,
+                                  htmlOutput("tab2_plot_title"), 
                                     plotOutput("trend_p")
                                     ),
                              column(width = 6,
+                                   h4("Empirical correlation"),
                                    plotOutput("cor_trend_p")
                                    )
-                           ),
-                           h5(icon("circle-info"), 
-                           "Correlation measures are very sensitive to sample size.
-                            If the number of complete pairs is very small (i.e < 10),
-                            the calculated measures are less realiable and will affect downstream analysis.
-                            User may consider removing these time points from the dataset.
-                            When the number of complete pairs is less then 10, the correlation is removed from visualization. 
-                            Details of these time points can be examined in the previous subtab."
                            )
                          ))),
               
@@ -322,6 +312,28 @@ server <- function(input, output) {
     selectInput("select_var1", label = "Variables", choices = colnames(df()),
                        selected = colnames(df())[5])
   })
+  
+  output$tab1_note <- renderUI({
+    req(input$sum_type)
+    
+    if (input$sum_type == "Time") {
+      note_html <- "<ul>
+      <li>Summary statistics are sensitive to the proportion of missing values and can be unreliable 
+      if the proportion of missing values is large</li>
+      <li>Time points with no more than 10 observations are highlighted in red</li>
+    </ul>"
+    } else {
+      note_html <- "<ul>
+      <li>Summary statistics are sensitive to the proportion of missing values and can be unreliable 
+      if the proportion of missing values is large</li>
+      <li>Individuals with no more than 3 observations are highlighted in red</li>
+      <li> *slope is derived by fitting linear regression models along each individual trajectory. 
+      It reflects an average rate of linear change across time</li>
+    </ul>"
+    }
+    
+    h5(icon("circle-info"), HTML(note_html))
+  })
 
   ## summary of single variables
   df_uni <- reactive({
@@ -342,8 +354,8 @@ server <- function(input, output) {
       t_uniq <- sort(unique(df_sum$time))
       plot_sum <- df_sum %>%
         ggplot()+
-        geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.5, fill = "grey")+
-        geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
+        geom_boxplot(aes(x=time, y=var, group=time), outlier.size = 0.8, fill = "grey")+
+        # geom_jitter(aes(x=time, y=var, group=time), size = 0.5)+
         geom_line(data = df_sum %>% filter(!is.na(med)), aes(x=time, y=med))+
         scale_x_continuous(breaks = t_uniq, name = input$time_var)+
         labs(x=input$time_var, y=input$select_var1)
@@ -409,13 +421,31 @@ server <- function(input, output) {
       rename(time=input$time_var, id=input$id_var, var=input$select_var1) %>%
       mutate(id = as.factor(id)) %>%
       arrange(time)
-   plt_miss <- df_miss %>%
-       pivot_wider(id_cols = "id", names_from = "time", values_from = "var") %>%
-       select(-id) %>%
+   # re-formate data
+   wide_miss <- df_miss %>%
+     pivot_wider(id_cols = "id", names_from = "time", values_from = "var") %>%
+     select(-id)
+   # compute overall % present / % missing for the footnote
+   n_total   <- length(as.matrix(wide_miss))
+   n_missing <- sum(is.na(wide_miss))
+   pct_missing <- round(100 * n_missing / n_total, 1)
+   pct_present <- round(100 - pct_missing, 1)
+   # plot
+   plt_miss <- wide_miss %>%
        visdat::vis_miss(.)+
-       labs(x=paste0(input$time_var, " (% present)"), y = "ID")+
+       labs(x=paste0(input$time_var, " (% missing)"), y = "ID",
+            caption = paste0("Total observed: ", pct_present, "%   |   missing: ", pct_missing, "%"))+
        theme(axis.text.x = element_text(angle = 45, hjust = 0.5, vjust = 0),
-             axis.title.x = element_text(margin = margin(t = 10)))
+             axis.title.x = element_text(margin = margin(t = 10)),
+             plot.caption = element_text(hjust = 0.5, size = 10))
+   # override vis_miss's built-in legend labels (which include the % values)
+   # to drop the percentages and rename "present" -> "observed"
+   plt_miss <- plt_miss +
+     scale_fill_manual(
+       values = c(`FALSE` = "grey80", `TRUE` = "grey20"),
+       labels = c(`FALSE` = "Observed", `TRUE` = "Missing"),
+       name = ""
+     )
    plt_miss
   })
 
@@ -435,6 +465,15 @@ server <- function(input, output) {
     df_pair
   })
   #### comparision of distribution and trend
+  output$tab2_plot_title <- renderPrint({
+    if(input$sum_type2 == "Time"){
+      h4("Distribution comparision")
+    } else {
+      h4("Trajectory comparison")
+    }
+    
+  })
+  
   output$trend_p <- renderPlot({
     t_uniq <- unique(df_pair()$time)
     # trend plot
@@ -446,7 +485,7 @@ server <- function(input, output) {
         scale_fill_brewer(palette = "Set2")+
         scale_color_brewer(palette = "Set2")+
         scale_x_continuous(breaks = t_uniq)+
-        labs(title = "Variable distribution", x = input$time_var, y = " ", col = " ", fill = " ")+
+        labs(title = " ", x = input$time_var, y = " ", col = " ", fill = " ")+
         theme(legend.position = "bottom")
     }
     else {
@@ -458,7 +497,7 @@ server <- function(input, output) {
         scale_fill_brewer(palette = "Set2")+
         scale_color_brewer(palette = "Set2")+
         # scale_x_continuous(breaks = t_brk)+
-        labs(title = "Variable trend", x = input$time_var, y = " ", col = " ")+
+        labs(title = " ", x = input$time_var, y = " ", col = " ")+
         theme(legend.position = "bottom")
     }
     # display
@@ -484,7 +523,7 @@ server <- function(input, output) {
       ggplot()+
       geom_point(aes(x=time, y=cor, alpha = Npct), size = 3)+
       geom_line(aes(x=time, y=cor))+
-      labs(title = "Empirical correlation", x = input$time_var, y = " ",
+      labs(title = "", x = input$time_var, y = " ",
            alpha = "Proportion of complete pairs")+
       theme(legend.position = "bottom")+
       guides(color = guide_legend(order = 1),
