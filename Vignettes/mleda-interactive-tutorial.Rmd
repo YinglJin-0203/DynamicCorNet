@@ -7,28 +7,13 @@ output:
     toc_depth: 2
     number_sections: true
     theme: journal
-runtime: shiny
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE)  # hide code — end users don't need to see it
 library(shiny)
-library(shinyWidgets)
-library(DT)
-library(tidyverse)
-library(RColorBrewer)
-library(igraph)
-library(smacof)
+library(ggplot2)
 theme_set(theme_minimal())
-
-# PLACEHOLDER: these source calls assume Code/ sits alongside this .Rmd,
-# same as in your real app.R. Required for the Tab 3 and Tab 4 demos below.
-# source("Code/dyn_mds.R")
-# source("Code/lambda_sweep.R")
-# source("Code/dMDS_Helpers.R")
-# source("Code/get_similarity.R")
-# source("Code/lcurve_corner_dist.R")
-# source("Code/lcurve_corner_menger.R")
 ```
 
 <!--
@@ -107,110 +92,31 @@ This app helps you explore **multivariate longitudinal data** , which includes m
 
 The rest of this tutorial walks through the trickiest parts of the app using small, simplified demos you can interact with right here. At the end, you can try the full app embedded directly in this page.
 
-```{r toy_data, eval = F}
-# Small simulated dataset used only for the mini demos below.
-# Independent from the real app's data/helper scripts.
-set.seed(62)
-n_id <- 20
-n_time <- 6
-toy_df <- expand.grid(id = 1:n_id, time = 1:n_time)
-toy_df$var_a <- rnorm(nrow(toy_df))
-toy_df$var_b <- 0.7 * toy_df$var_a + rnorm(nrow(toy_df), sd = 0.7)
-```
+
+Try it with your own file, or use this [sample dataset](https://github.com/YinglJin-0203/DynamicCorNet/blob/main/SampleData/Sim_Example.csv).
 
 ## Tab 1: Data upload and preview
 
-This is a live, working version of the app's first tab. Try it with
-your own file, or use this [sample dataset]() 
-
-
-```{r}
-fluidPage(
-  tags$head(
-    tags$style(HTML("
-      @media (max-width: 768px) {
-        .well { width: 100% !important; }
-        .col-sm-6 { width: 100% !important; }
-        .col-sm-9 { width: 100% !important; }
-      }
-      .shiny-plot-output, .dataTables_wrapper {
-        max-width: 100%;
-      }
-    "))
-  ),
-  sidebarLayout(
-    sidebarPanel(
-      fileInput(inputId = "df_path", label = "Upload a long format csv file",
-                accept = c(".csv")),
-      tagList(
-        icon("info-circle"),
-        em("Long format data requires each row to represent an observation
-           at each time point. Multiple observations at the same time point
-           should be stacked vertically.")
-      ),
-      br(), br(),
-      uiOutput("id_var"),
-      uiOutput("time_var"),
-      width = 3
-    ),
-    mainPanel(
-      h4("Data preview"),
-      DTOutput("show_df"),
-      br(),
-      h4("Sample summary"),
-      dataTableOutput("size_info", width = "600px")
-    )
-  )
-)
-```
-
-```{r}
-df <- reactive({
-  req(input$df_path)
-  read.csv(input$df_path$datapath, check.names = FALSE)
-})
-
-output$show_df <- DT::renderDT(
-  datatable(df(), options = list(scrollX = TRUE, fixedHeader = TRUE)) %>%
-    formatSignif(columns = colnames(df()), digits = 3),
-  server = TRUE
-)
-
-output$time_var <- renderUI({
-  req(df())
-  selectInput("time_var", label = "Specify time", choices = colnames(df()))
-})
-
-output$id_var <- renderUI({
-  req(df())
-  selectInput("id_var", label = "Specify participant ID", choices = colnames(df()))
-})
-
-output$size_info <- renderDataTable({
-  req(df(), input$time_var, input$id_var)
-  Nsize <- length(unique(df()[, input$id_var]))
-  Nrange <- range(table(df()[, input$id_var]))
-  Nrange <- paste0("(", round(Nrange[1], 2), ", ", round(Nrange[2], 2), ")")
-  Nfreq <- round(mean(table(df()[, input$id_var])), 2)
-  Trange <- range(df()[, input$time_var])
-  Trange <- paste0("(", round(Trange[1], 2), ", ", round(Trange[2], 2), ")")
-  medT <- round(median(df()[, input$time_var]), 2)
-  sum_tb <- data.frame(
-    c("Number of participants",
-      "Range of number of observations per participant",
-      "Average number of observations per participant",
-      "Range of follow up time",
-      "Median of follow up time"),
-    c(Nsize, Nrange, Nfreq, Trange, medT)
-  )
-  datatable(sum_tb, rownames = FALSE, caption = " ", colnames = c(" ", " "),
-            options = list(dom = "t"))
-})
-```
-
 Currently, mlEDA supports comma-separated values (CSV) file in long format, with each row representing one subject at a single time point, and repeated measurements are stacked vertically across time. Users need to specify the **subject identifier** and **time variable** in the input panel, as they define the longitudinal structure for downstream analysis. 
 
+```{r, out.width="60%", fig.align="center"}
+knitr::include_graphics("../Vignettes/tab1.gif")
+```
+
+
 Once uploaded, the data is displayed in the output panel as a table, followed by a brief summary of sample size and follow-up times. Users can use the search box at the top right corner to identify a specific record. Users can also sort the display by any variable by clicking the corresponding column name.
+
+ <!-- https://ezgif.com/optimize/ezgif-6e202c33e8383881.gif -->
+
+## Tab 2
+
+### Tab 2.1 Univariate analysis
+
+
+
+### Tab 2.2 Bivariate analysis
+
+### Tab 2.3 Multivariate analysis
 
 
 
