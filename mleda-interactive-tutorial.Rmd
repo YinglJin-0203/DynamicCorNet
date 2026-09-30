@@ -1,0 +1,216 @@
+---
+title: "Getting Started with the mlEDA App"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 2
+    number_sections: true
+    theme: journal
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)  # hide code — end users don't need to see it
+library(shiny)
+library(shinyWidgets)
+library(DT)
+library(tidyverse)
+library(RColorBrewer)
+library(igraph)
+library(smacof)
+theme_set(theme_minimal())
+
+# PLACEHOLDER: these source calls assume Code/ sits alongside this .Rmd,
+# same as in your real app.R. Required for the Tab 3 and Tab 4 demos below.
+# source("Code/dyn_mds.R")
+# source("Code/lambda_sweep.R")
+# source("Code/dMDS_Helpers.R")
+# source("Code/get_similarity.R")
+# source("Code/lcurve_corner_dist.R")
+# source("Code/lcurve_corner_menger.R")
+```
+
+<!--
+SETUP NOTES (delete this comment block once done):
+
+1. THIS FILE REQUIRES A LIVE R PROCESS TO RUN.
+   Because of `runtime: shiny` in the YAML header, this cannot be
+   built into a static pkgdown site or shipped as a package vignette.
+   Deploy it as its own piece of content on Posit Connect (same way
+   you'd deploy a Shiny app). Link to it from your pkgdown site /
+   README with something like "Try the interactive tutorial ->".
+
+2. FOLDER STRUCTURE FOR THE FULL-APP EMBED AT THE BOTTOM:
+   shinyAppDir() looks for app.R in a directory. Your real app.R does
+   source("Code/dyn_mds.R") etc. with relative paths, so wherever you
+   deploy this tutorial, you need the full app copied alongside it:
+
+     tutorial-content/
+       mLEDA_tutorial.Rmd      <- this file
+       full_app/
+         app.R                 <- copy of your real app.R
+         Code/
+           dyn_mds.R
+           lambda_sweep.R
+           dMDS_Helpers.R
+           get_similarity.R
+           lcurve_corner_dist.R
+           lcurve_corner_menger.R
+
+   Update the `appDir` path in the final section to match.
+
+3. TOY DATASET FOR THE MINI DEMOS:
+   The mini interactive demos below use a small simulated dataset
+   generated in the `toy_data` chunk. This keeps the demos fast,
+   self-contained, and independent from your real app's helper
+   scripts (which have heavier dependencies like igraph/mgcv/smacof
+   that aren't needed to teach the core concepts).
+
+4. Replace both placeholders in the "How to access this app" section
+   below with your actual web app URL and GitHub repo URL.
+-->
+
+## How to access this app
+
+There are two ways to use the app:
+
+### Option 1: Use the web app (no installation required)
+
+The app is hosted online — just open the link below in your browser:
+
+**[Web App Link](#) <!-- PLACEHOLDER: replace with your Posit Connect app URL --> **
+
+This is the easiest way to get started, especially if you don't use R.
+
+### Option 2: Install the package and run it locally
+
+If you'd like to run the app on your own computer (e.g., for larger
+files, offline use, or to inspect/modify the code), you can install
+the package from GitHub and launch the app yourself:
+
+```{r, echo = TRUE, eval = FALSE}
+# install.packages("remotes")  # if not already installed
+remotes::install_github("your-org/your-repo")  # PLACEHOLDER: replace with your GitHub repo
+
+library(yourPackage)  # PLACEHOLDER: replace with your package name
+run_app()             # PLACEHOLDER: replace with your app's launch function, if different
+```
+
+**[GitHub Repository](#) <!-- PLACEHOLDER: replace with your GitHub repo URL --> **
+
+---
+
+## What this app does
+
+This app helps you explore **multivariate longitudinal data** , which includes multiple measures repeatedly collected on the same sample over time, without coding yourself! You upload a spreadsheet, and the app lets you preview your data, examine variable distribution, compare pairwise correlation, and visualize multidimensional relationships between variables as a **dynamic network**, where variables with strong correlation are placed closer and vice versa. 
+
+The rest of this tutorial walks through the trickiest parts of the app using small, simplified demos you can interact with right here. At the end, you can try the full app embedded directly in this page.
+
+```{r toy_data, eval = F}
+# Small simulated dataset used only for the mini demos below.
+# Independent from the real app's data/helper scripts.
+set.seed(62)
+n_id <- 20
+n_time <- 6
+toy_df <- expand.grid(id = 1:n_id, time = 1:n_time)
+toy_df$var_a <- rnorm(nrow(toy_df))
+toy_df$var_b <- 0.7 * toy_df$var_a + rnorm(nrow(toy_df), sd = 0.7)
+```
+
+## Tab 1: Data upload and preview
+
+This is a live, working version of the app's first tab. Try it with
+your own file, or use this [sample dataset]() 
+
+
+```{r}
+fluidPage(
+  tags$head(
+    tags$style(HTML("
+      @media (max-width: 768px) {
+        .well { width: 100% !important; }
+        .col-sm-6 { width: 100% !important; }
+        .col-sm-9 { width: 100% !important; }
+      }
+      .shiny-plot-output, .dataTables_wrapper {
+        max-width: 100%;
+      }
+    "))
+  ),
+  sidebarLayout(
+    sidebarPanel(
+      fileInput(inputId = "df_path", label = "Upload a long format csv file",
+                accept = c(".csv")),
+      tagList(
+        icon("info-circle"),
+        em("Long format data requires each row to represent an observation
+           at each time point. Multiple observations at the same time point
+           should be stacked vertically.")
+      ),
+      br(), br(),
+      uiOutput("id_var"),
+      uiOutput("time_var"),
+      width = 3
+    ),
+    mainPanel(
+      h4("Data preview"),
+      DTOutput("show_df"),
+      br(),
+      h4("Sample summary"),
+      dataTableOutput("size_info", width = "600px")
+    )
+  )
+)
+```
+
+```{r}
+df <- reactive({
+  req(input$df_path)
+  read.csv(input$df_path$datapath, check.names = FALSE)
+})
+
+output$show_df <- DT::renderDT(
+  datatable(df(), options = list(scrollX = TRUE, fixedHeader = TRUE)) %>%
+    formatSignif(columns = colnames(df()), digits = 3),
+  server = TRUE
+)
+
+output$time_var <- renderUI({
+  req(df())
+  selectInput("time_var", label = "Specify time", choices = colnames(df()))
+})
+
+output$id_var <- renderUI({
+  req(df())
+  selectInput("id_var", label = "Specify participant ID", choices = colnames(df()))
+})
+
+output$size_info <- renderDataTable({
+  req(df(), input$time_var, input$id_var)
+  Nsize <- length(unique(df()[, input$id_var]))
+  Nrange <- range(table(df()[, input$id_var]))
+  Nrange <- paste0("(", round(Nrange[1], 2), ", ", round(Nrange[2], 2), ")")
+  Nfreq <- round(mean(table(df()[, input$id_var])), 2)
+  Trange <- range(df()[, input$time_var])
+  Trange <- paste0("(", round(Trange[1], 2), ", ", round(Trange[2], 2), ")")
+  medT <- round(median(df()[, input$time_var]), 2)
+  sum_tb <- data.frame(
+    c("Number of participants",
+      "Range of number of observations per participant",
+      "Average number of observations per participant",
+      "Range of follow up time",
+      "Median of follow up time"),
+    c(Nsize, Nrange, Nfreq, Trange, medT)
+  )
+  datatable(sum_tb, rownames = FALSE, caption = " ", colnames = c(" ", " "),
+            options = list(dom = "t"))
+})
+```
+
+Currently, mlEDA supports comma-separated values (CSV) file in long format, with each row representing one subject at a single time point, and repeated measurements are stacked vertically across time. Users need to specify the **subject identifier** and **time variable** in the input panel, as they define the longitudinal structure for downstream analysis. 
+
+Once uploaded, the data is displayed in the output panel as a table, followed by a brief summary of sample size and follow-up times. Users can use the search box at the top right corner to identify a specific record. Users can also sort the display by any variable by clicking the corresponding column name.
+
+
+
