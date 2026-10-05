@@ -94,7 +94,7 @@ max_dist_point <- output_i[output_i$lambda == best_lam["perp_dist"],
 menger_point <- output_i[output_i$lambda == best_lam["menger"],
                          c("movement", "stress")]
 points <- rbind(max_dist_point, menger_point)
-points$method <- c("Max dist", "Menger")
+points$method <- c("Maximum perpendicular distance", "Maximum Menger curvature")
 
 # get first and last points (defines the blue reference line)
 first_pt <- output_i %>% slice(1)
@@ -122,11 +122,6 @@ output_i %>%
   geom_line() +
   geom_point(data = points, aes(x = movement, y = stress),
              size = 2, col = "red") +
-  geom_label(data = points, aes(x = movement, y = stress, label = method),
-             nudge_y = 0.05,
-             nudge_x = 0.1,
-             color   = "red",
-             size    = 3) +
   # 1. straight line from first to last point
   annotate("segment",
            x = x1, y = y1, xend = x2, yend = y2,
@@ -135,10 +130,34 @@ output_i %>%
   annotate("segment",
            x = xm, y = ym, xend = xf, yend = yf,
            color = "darkgreen", linetype = "dotted") +
+  # 3. label boxes, narrow (one word per line) with arrows to their dot
+  ggrepel::geom_label_repel(
+    data          = points,
+    aes(x = movement, y = stress, label = gsub(" ", "\n", method)),
+    color         = "red",
+    size          = 3,
+    lineheight    = 0.85,
+    label.padding = unit(0.15, "lines"),
+    box.padding   = unit(0.6, "lines"),
+    point.padding = unit(0.3, "lines"),
+    segment.color = "red",
+    segment.size  = 0.4,
+    arrow         = arrow(length = unit(0.015, "npc"), type = "closed"),
+    min.segment.length = 0,   # always draw the arrow, even if close
+    force         = 2,
+    max.overlaps  = Inf,
+    # push labels toward the upper-right relative to their point
+    direction     = "both",
+    nudge_x       = 0.15,
+    nudge_y       = 0.15,
+    hjust         = 0,
+    vjust         = 0
+  ) +
   # force equal visual scaling on both axes so the right angle
   # is actually rendered as a right angle
-  coord_fixed(ratio = 1)+
+  coord_fixed(ratio = 1) +
   labs(x = "Regularization (normalized)", y = "Stress (normalized)")
+
 dev.off()
 
 
