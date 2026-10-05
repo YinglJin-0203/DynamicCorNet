@@ -142,7 +142,7 @@ ui <- fluidPage(
                                       selected = "Time", multiple = FALSE),
                           # correlation type
                           selectInput("cor_type", label="Type of correlation",
-                                      choices = list("pearson", "spearman")),
+                                      choices = list("Pearson", "Spearman")),
                           tagList(
                             icon("info-circle"),
                             em("Correlation measures may be unrealiable when the proportion of missing is large! 
@@ -153,15 +153,15 @@ ui <- fluidPage(
                           br(),br(),
                           # scale
                           checkboxInput("scaleY", "Scale correlation axis to data?", value = F),
-                          # NEW: toggle for the correlation values table
-                          checkboxInput("show_cor", label = "Show correlation table?", value=F),
                           tagList(
                             icon("info-circle"),
                             em("Scaled axis's range is determined by the observed correlation, which is better for observing the change the correlation.
                                \n
                                Unscaled axis's range is fixed to [-1, 1], which is better for observing the magnitude of correlation.  ")
                           ),
-                          br(), br(),
+                          # NEW: toggle for the correlation values table
+                          checkboxInput("show_cor", label = "Show correlation table?", value=F),
+                          br(),
                           uiOutput("varnames2"),
                           width = 3),
                        
@@ -170,7 +170,7 @@ ui <- fluidPage(
                            # h3("Comparision of distribution, temporal trend and empirical correlation"),
                            fluidRow(
                              column(width = 6,
-                                  htmlOutput("tab2_plot_title"), 
+                                  h4("Bivariate summary"), 
                                     plotOutput("trend_p")
                                     ),
                              column(width = 6,
@@ -192,7 +192,7 @@ ui <- fluidPage(
                          sidebarLayout(
                            sidebarPanel(
                              selectInput("cor_type2", label="Type of correlation",
-                                         choices = list("pearson", "spearman")),
+                                         choices = list("Pearson", "Spearman")),
                              tagList(
                                icon("info-circle"),
                                em("Correlation measures may be unrealiable when the proportion of missing is large!")
@@ -222,8 +222,8 @@ ui <- fluidPage(
              # side bar
              sidebarPanel(
                # choose correlation type
-               selectInput("cor_type3", label="Type of correlation/association", 
-                           choices = list("pearson", "spearman", "euclidean")),
+               selectInput("cor_type3", label="Relationship measure", 
+                           choices = list("Pearson", "Spearman", "Euclidean")),
                # tagList(
                #   icon("info-circle"),
                #   em("Strong association is indicated by large absolute values of correlation, or small values of euclidean distance.")
@@ -253,8 +253,8 @@ ui <- fluidPage(
            sidebarLayout(
              sidebarPanel(
                # choose correlation type
-               selectInput("mtype2", label="Type of correlation/association",
-                           choices = list("pearson", "spearman", "euclidean")),
+               selectInput("mtype2", label="Relationship measure",
+                           choices = list("Pearson", "Spearman", "Euclidean")),
                br(),
                sliderInput("thres_m2", label = "Show average similarity above",
                            min =0, max = 1, value = 0.1),
@@ -271,7 +271,7 @@ ui <- fluidPage(
               ),
              
              mainPanel(
-               h3("Integrated network of correlation"),
+               h3("Aggregated network plot"),
                plotOutput("int_net", height = "500px"),
                dataTableOutput("test")
              )
@@ -498,14 +498,14 @@ server <- function(input, output) {
     df_pair
   })
   #### comparision of distribution and trend
-  output$tab2_plot_title <- renderPrint({
-    if(input$sum_type2 == "Time"){
-      h4("Distribution comparision")
-    } else {
-      h4("Trajectory comparison")
-    }
-    
-  })
+  # output$tab2_plot_title <- renderPrint({
+  #   if(input$sum_type2 == "Time"){
+  #     h4("Distribution comparision")
+  #   } else {
+  #     h4("Trajectory comparison")
+  #   }
+  #   
+  # })
   
   output$trend_p <- renderPlot({
     t_uniq <- unique(df_pair()$time)
@@ -547,7 +547,7 @@ server <- function(input, output) {
     df_pair() %>%
       group_by(time) %>%
       summarize(cor = cor(.data[[input$select_var2[1]]], .data[[input$select_var2[2]]],
-                          use = "pairwise.complete.obs", method = input$cor_type),
+                          use = "pairwise.complete.obs", method = tolower(input$cor_type)),
                 Npair = sum(complete.cases(.data[[input$select_var2[1]]], .data[[input$select_var2[2]]]))) %>%
       mutate(Npct = Npair/N)
   })
@@ -616,7 +616,7 @@ server <- function(input, output) {
   output$heatmap <- renderPlot({
     cor_mat <- cor(df_multi() %>% filter(time==input$time_bar1) %>%
                     dplyr::select(-id, -time),
-                  method = input$cor_type2, use = "pairwise.complete.obs")
+                  method = tolower(input$cor_type2), use = "pairwise.complete.obs")
     ## heatmap
     # Melt to long format for ggplot
     cor_long <- reshape2::melt(cor_mat)
@@ -687,7 +687,7 @@ server <- function(input, output) {
     req(df_net(), input$cor_type3)
     obs_cors <- df_net() %>%
       group_by(time) %>%
-      group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = input$cor_type3)})
+      group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = tolower(input$cor_type3))})
     obs_cors
   })
   # LOCF
@@ -824,7 +824,7 @@ server <- function(input, output) {
              edge.curved        = 0.2,
              margin             = c(0, 0, 0.2, 0))
         # add edge legend
-        if(input$cor_type3 %in% c("pearson", "spearman")){
+        if(input$cor_type3 %in% c("Pearson", "Spearman")){
           legend(
             x = "bottom",    # position: "topleft", "topright", "bottomleft", "bottomright"
             legend = c("Positive", "Negative"),
@@ -870,7 +870,7 @@ server <- function(input, output) {
     req(df_net2(), input$mtype2)
     obs_cors2 <- df_net2() %>%
       group_by(time) %>%
-      group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = input$cor_type3)})
+      group_map(~{get_similarity(.x, use = "pairwise.complete.obs", method = tolower(input$mtype2))})
    obs_cors2
   })
   # output$test <- renderDataTable(obs_cor2[[1]])
@@ -986,7 +986,7 @@ server <- function(input, output) {
         edge.curved        = 0.2,
         margin             = c(0, 0, 0.2, 0))
    # add edge legend
-   if(input$cor_type3 %in% c("pearson", "spearman")){
+   if(input$mtype2 %in% c("Pearson", "Spearman")){
      legend(
        x = "bottom",    # position: "topleft", "topright", "bottomleft", "bottomright"
        legend = c("Positive", "Negative"),
