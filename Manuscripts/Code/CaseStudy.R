@@ -107,13 +107,19 @@ dev.off()
 ##### Supplemental graphs #####
 
 # trajectories
+colnames(df)
+df_type <- data.frame(name = colnames(df)[-c(1:2)],
+           procedure = c(rep("Physical", 5), rep("Specimen", 3), rep("Ultrasound", 4)))
 df %>% 
   pivot_longer(3:14) %>%
   filter(!is.na(value)) %>%
+  left_join(df_type) %>% 
+  # filter(procedure == "Physical") %>%
+  filter(procedure == "Ultrasound") %>%
   ggplot() +
   geom_line(aes(x=time, y=value, group = id), linewidth = 0.5, na.rm = T, alpha = 0.5) + 
-  geom_smooth(aes(x=time, y=value), na.rm = T)+
-  facet_wrap(~name, scales = "free", strip.position = "left")+
+  geom_smooth(aes(x=time, y=value), na.rm = T, method = "loess")+
+  facet_wrap(~name, nrow = 1, scale = "free")+
   labs(x="Week", y= " ")
 
 
