@@ -123,13 +123,13 @@ df %>%
   labs(x="Week", y= " ")
 
 
-# correlation
+# pairwise correlation
 # compute pairwise correlations at each time point
 vars <- setdiff(colnames(df), c("time", "id"))
 
 # get all unique pairs
 pairs <- combn(vars, 2, simplify = FALSE)
-N <- length(unique(df$ID))
+N <- length(unique(df$id))
 
 # compute correlation for each pair at each time point
 cor_df <- map_dfr(pairs, function(pair) {
@@ -151,19 +151,67 @@ cor_df <- map_dfr(pairs, function(pair) {
 n_pairs <- length(unique(cor_df$group))
 plots_per_page <- ceiling(n_pairs / 2)  # split evenly across 2 pages
 
-# page 1
-p1 <- cor_df %>%
-  mutate(group = str_wrap(group, width = 20)) %>%
+# ---- 2. Plot: matrix of trajectories ----
+# Order factor levels so the row/col layout is consistent
+cor_df <- cor_df %>%
+  mutate(var1 = factor(var1, levels = vars),
+         var2 = factor(var2, levels = vars))
+
+cor_df %>% 
   filter(!is.na(correlation)) %>%
   filter(Npair >= 10) %>%
-  arrange(var1, var2) %>% 
-  ggplot() +
+  ggplot(aes(x = time, y = correlation)) +
   geom_point(aes(x=time, y=correlation, alpha = Npct)) +
   geom_line(aes(x=time, y=correlation)) +
-  facet_wrap_paginate(~ group, ncol = 5, nrow = 7, page = 1) +  # adjust nrow/ncol as needed
-  labs(x = "Week", y = "",  alpha = "Proportion of complete pairs")+
-  theme(legend.position = "bottom")
+  geom_hline(yintercept = c(-0.4, 0.4), col="red", linewidth = 0.2, linetype = "dashed") +
+  facet_grid(rows = vars(var1), cols = vars(var2)) +
+  theme_minimal(base_size = 8) +
+  theme(
+    strip.text = element_text(size = 6),
+    axis.text = element_text(size = 5),
+    panel.spacing = unit(0.1, "lines"),
+    legend.position = "bottom"
+  ) +
+  labs(x = "Week", y = " ", alpha = "Proportion of complete pairs")
 
-# page 2
-p2 <- p1 + facet_wrap_paginate(~ group, ncol =  5, nrow = 7, page = 2)
+# heatmaps
+library(reshape2)
+
+times <- sort(unique(df$time))
+
+
+cor_long_all <- map_dfr(times, function(t) {
+  cor_mat <- df %>%
+    filter(time == t) %>%
+    ungroup() %>%
+    select(-id, -time) %>%
+    cor(method = "spearman", use = "pairwise.complete.obs")
+  
+  
+  reshape2::melt(cor_mat) %>%
+    setNames(c("Var1", "Var2", "correlation")) %>%
+    mutate(time = t)
+})
+
+ggplot(cor_long_all, aes(x = Var1, y = Var2, fill = correlation)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = round(correlation, 2)), size = 2) +
+  scale_fill_gradient2(
+    low      = "#E41A1C",
+    mid      = "white",
+    high     = "#377EB8",
+    midpoint = 0,
+    limits   = c(-1, 1),
+    name     = "Correlation"
+  ) +
+  facet_wrap(~ time, ncol = 4) +
+  theme_minimal(base_size = 8) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 5),
+    axis.text.y = element_text(size = 5),
+    axis.title  = element_blank(),
+    strip.text  = element_text(size = 8)
+  ) +
+  coord_fixed() +
+  labs(title = "")
 
