@@ -21,10 +21,19 @@ set.seed(825)
 # load data
 df <- read.csv("Manuscripts/Data/IFEDDemoData.csv")
 df$ID <- as.factor(df$ID)
+df <- df %>% rename(IFEDID=id, Week=time)
+write.csv(df, file = "Manuscripts/Data/IFEDDemoData.csv", row.names=F)
+
+#### Some data formatting ####
+# change column names for precision
+colnames(df)
+df <- df %>% rename(id=ID, time=Week, AGD.FA=Anogenitals.FA, AGD.AC=Anogenitals.anterior,
+                    BMIZ=BMI.for.age, Estradiol=Estradiol_N, Bud.volume=Bud.bead.volume)
+write.csv(df, file = "Manuscripts/Data/IFEDDemoData.csv", row.names=F)
 
 #### Dynamic MDS ####
 
-df <- df %>% rename(id=ID, time= Week)
+
 df <- df %>% group_by(time) %>% group_modify(~clean_sparse_columns(.x, min_obs = 10))
 
 obs_cors <- df %>%
@@ -101,12 +110,12 @@ for(i in seq_along(t_uniq)){
 }
 
 
-dev.off()
+dev.off() # save to PDF: 12 by 9
 
 
-##### Supplemental graphs #####
+#### Supplemental graphs ####
 
-# trajectories
+###### Individual trajectories ######
 colnames(df)
 df_type <- data.frame(name = colnames(df)[-c(1:2)],
            procedure = c(rep("Physical", 5), rep("Specimen", 3), rep("Ultrasound", 4)))
@@ -114,8 +123,9 @@ df %>%
   pivot_longer(3:14) %>%
   filter(!is.na(value)) %>%
   left_join(df_type) %>% 
-  # filter(procedure == "Physical") %>%
-  filter(procedure == "Ultrasound") %>%
+  filter(procedure == "Physical") %>%
+  # filter(procedure == "Specimen") %>%
+  # filter(procedure == "Ultrasound") %>%
   ggplot() +
   geom_line(aes(x=time, y=value, group = id), linewidth = 0.5, na.rm = T, alpha = 0.5) + 
   geom_smooth(aes(x=time, y=value), na.rm = T, method = "loess")+
@@ -147,11 +157,7 @@ cor_df <- map_dfr(pairs, function(pair) {
     ) %>%  mutate(Npct = Npair/N)
 })
 
-# plot each pair separately onto two pages
-n_pairs <- length(unique(cor_df$group))
-plots_per_page <- ceiling(n_pairs / 2)  # split evenly across 2 pages
-
-# ---- 2. Plot: matrix of trajectories ----
+##### Matrix of  correlation trajectories #####
 # Order factor levels so the row/col layout is consistent
 cor_df <- cor_df %>%
   mutate(var1 = factor(var1, levels = vars),
@@ -215,3 +221,43 @@ ggplot(cor_long_all, aes(x = Var1, y = Var2, fill = correlation)) +
   coord_fixed() +
   labs(title = "")
 
+
+#### Measurement Grid ####
+
+df <- read.csv("Manuscripts/Data/IFD126005_IFED_GIRLS.csv")
+df %>% 
+  select(IFEDID, Visit, AgeInDaysIA, AgeInDaysHorm, AgeInDaysUltra)
+
+df_schedule <- data.frame(
+  Week = c(1, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36),
+  'Physical Exam' = rep(1, 12),
+  'Blood Collection' = c(0, rep(1, 11)),
+  'Ultrasound' = c(1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0),
+  check.names = F
+)
+
+df_schedule %>% pivot_longer(2:4) %>%
+  filter(value==1) %>%
+  mutate(name = factor(name, levels = c("Physical Exam", "Blood Collection", "Ultrasound"))) %>%
+  ggplot(aes(x=Week, y = name)) + 
+  geom_point(shape = 8, size = 5) +
+  theme_minimal() + 
+  scale_x_continuous(breaks = c(1, 2, 4, 6, 8, 12, 16, 20, 24, 28, 32, 36)) + 
+  theme(panel.grid.major.x = element_line(size = 0.75, linetype = 2),
+        axis.text.y = element_text(size = 15)) +
+  labs(x = "Week", y = " ")
+
+#### Proportion of feeding regime ####
+list.files("Manuscripts/Data")
+
+df_base <- read.csv("Manuscripts/Data/IFD126001_DemographyDataset.csv")
+df_base <- df_base %>% select(IFEDID, FeedingGroup)
+table(df_base$FeedingGroup)
+
+df_long <- read.csv("Manuscripts/Data/IFD126005_IFED_GIRLS.csv")
+df_long <- df_long %>% filter(Visit==8)
+df_long %>% select(IFEDID, TotVol_Uterus, Estradiol_N) %>%
+  filter(!is.na(TotVol_Uterus) & !is.na(Estradiol_N)) %>%
+  left_join(df_base) %>%
+  select(FeedingGroup) %>%
+  table()
