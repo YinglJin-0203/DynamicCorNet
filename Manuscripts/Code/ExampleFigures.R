@@ -56,13 +56,13 @@ ggplot(df, aes(x, y)) +
            label = "Corner",
            color = "red", fontface = "bold", hjust = -0.1, vjust = 1.1,
            size = 3.4) +
-  annotate("text", x = -4, y = f(-4)-0.5,
-           label = "Unfair trade-off",
-           color = "steelblue", hjust = 0, size = 3.2) +
-  annotate("text", x = 3.5, y = f(3.5) + 0.15,
-           label = "Unfair trade-off",
-           color = "Steelblue", hjust = 0.5, size = 3.2) +
-  labs(title = " ", x = "Regularization", y = "Stress") +
+  # annotate("text", x = -4, y = f(-4)-0.5,
+  #          label = "Unfair trade-off",
+  #          color = "steelblue", hjust = 0, size = 3.2) +
+  # annotate("text", x = 3.5, y = f(3.5) + 0.15,
+  #          label = "Unfair trade-off",
+  #          color = "Steelblue", hjust = 0.5, size = 3.2) +
+  labs(title = " ", x = "Penalization", y = "Stress") +
   theme(axis.text = element_blank())
 dev.off()
 
@@ -156,7 +156,7 @@ output_i %>%
   # force equal visual scaling on both axes so the right angle
   # is actually rendered as a right angle
   coord_fixed(ratio = 1) +
-  labs(x = "Regularization (normalized)", y = "Stress (normalized)")
+  labs(x = "Penalization (scaled)", y = "Stress (scaled)")
 
 dev.off()
 
