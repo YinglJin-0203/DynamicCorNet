@@ -168,7 +168,7 @@ file_names <- list.files("Manuscripts/Output")[-1]
 
 best_lam_df <- list()
 plot_list <- list()
-# output_list <- list()
+output_list <- list()
 
 for(i in seq_along(file_names)){
   
@@ -206,24 +206,21 @@ for(i in seq_along(file_names)){
   
 }
 
-p_lev <- paste("P =", seq(5, 50, by = 5))
-t_lev <- paste("T =", seq(10, 100, by = 10))
+p_lev <- paste("P =", c(5, 10, 15, 25, 50))
+t_lev <- paste("T =", c(10, 20, 30, 50, 100))
 
 all_output <- bind_rows(output_list) %>%
-  filter(T!=15) %>%
+  filter(T %in% c(10, 20, 30, 50, 100) & P %in% c(5, 10, 15, 25, 50)) %>%
   mutate(P = paste("P =", P), T = paste("T =", T)) %>%
   mutate(P = factor(P, levels = p_lev), T = factor(T, levels = t_lev))
 all_lambda <- bind_rows(best_lam_df) %>%
-  filter(T!=15) %>%
+  filter(T %in% c(10, 20, 30, 50, 100) & P %in% c(5, 10, 15, 25, 50)) %>%
   mutate(P = paste("P =", P), T = paste("T =", T)) %>%
   pivot_longer(3:4, names_to = "method", values_to = "lambda") %>%
   left_join(all_output) %>%
   mutate(P = factor(P, levels = p_lev), T = factor(T, levels = t_lev))
 
 p <- all_output %>%
-  filter(T != "T = 15") %>%
-  mutate(P = factor(P, levels = paste("P =", seq(5, 50, by = 5))),
-         T = factor(T, levels = paste("T =", seq(10, 100, by = 10)))) %>%
     ggplot(aes(x=log(movement), y=log(stress)))+
     geom_point(size = 0.5) +
     geom_line() +
@@ -233,7 +230,7 @@ p <- all_output %>%
       data          = all_lambda,
       aes(x = log(movement), y = log(stress), label = method),
       color         = "red",
-      size          = 4,
+      size          = 5,
       lineheight    = 0.85,
       arrow         = arrow(length = unit(0.01, "npc"), type = "closed"),
       min.segment.length = 0,   # always draw the arrow, even if close
@@ -259,12 +256,12 @@ p <- all_output %>%
   # facet_wrap(~P+T, scales="free", labeller = label_both)
   ggh4x::facet_grid2(rows = vars(P), cols = vars(T),
               scales = "free", independent = "all")
-  
+p
 ggsave("Manuscripts/Figures/sim_lcurves.pdf", p, 
        width = 24, height = 20, units = "in", dpi = 300)
   
   
-}
+
 
 
 per_page <- 24

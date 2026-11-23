@@ -20,9 +20,9 @@ theme_set(theme_minimal())
 set.seed(825)
 # load data
 df <- read.csv("Manuscripts/Data/IFEDDemoData.csv")
-df$ID <- as.factor(df$ID)
-df <- df %>% rename(IFEDID=id, Week=time)
-write.csv(df, file = "Manuscripts/Data/IFEDDemoData.csv", row.names=F)
+# df$ID <- as.factor(df$ID)
+# df <- df %>% rename(IFEDID=id, Week=time)
+# write.csv(df, file = "Manuscripts/Data/IFEDDemoData.csv", row.names=F)
 
 #### Some data formatting ####
 # change column names for precision
@@ -135,16 +135,16 @@ df %>%
 
 # pairwise correlation
 # compute pairwise correlations at each time point
-vars <- setdiff(colnames(df), c("time", "id"))
+vars <- setdiff(colnames(df), c("Week", "IFEDID"))
 
 # get all unique pairs
 pairs <- combn(vars, 2, simplify = FALSE)
-N <- length(unique(df$id))
+N <- length(unique(df$IFEDID))
 
 # compute correlation for each pair at each time point
 cor_df <- map_dfr(pairs, function(pair) {
   df %>%
-    group_by(time) %>%
+    group_by(Week) %>%
     summarise(
       correlation = cor(.data[[pair[1]]], .data[[pair[2]]],
                         use = "pairwise.complete.obs", 
@@ -166,9 +166,9 @@ cor_df <- cor_df %>%
 cor_df %>% 
   filter(!is.na(correlation)) %>%
   filter(Npair >= 10) %>%
-  ggplot(aes(x = time, y = correlation)) +
-  geom_point(aes(x=time, y=correlation, alpha = Npct)) +
-  geom_line(aes(x=time, y=correlation)) +
+  ggplot(aes(x = Week, y = correlation)) +
+  geom_point(aes(x=Week, y=correlation, alpha = Npct)) +
+  geom_line(aes(x=Week, y=correlation)) +
   geom_hline(yintercept = c(-0.4, 0.4), col="red", linewidth = 0.2, linetype = "dashed") +
   facet_grid(rows = vars(var1), cols = vars(var2)) +
   theme_minimal(base_size = 8) +
@@ -176,7 +176,8 @@ cor_df %>%
     strip.text = element_text(size = 6),
     axis.text = element_text(size = 5),
     panel.spacing = unit(0.1, "lines"),
-    legend.position = "bottom"
+    legend.position = "bottom",
+    panel.border = element_rect(color = "black", fill = NA, linewidth = 0.5)
   ) +
   labs(x = "Week", y = " ", alpha = "Proportion of complete pairs")
 
